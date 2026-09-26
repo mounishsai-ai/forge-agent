@@ -1,0 +1,6 @@
+{
+  "id": "bugfix-inventory-key-mismatch",
+  "category": "bugfix",
+  "difficulty": "medium",
+  "prompt": "Our small inventory package (inventory/models.py and inventory/operations.py) is misbehaving: removing stock for an item sometimes fails even though the item is clearly in the inventory. There's a failing test in test_inventory.py that reproduces it (`pytest test_inventory.py`). Find the bug across the two modules and fix it so all the tests pass, without changing the public behavior of add_item (names should stay stored/displayed as given, lookups should stay case- and whitespace-insensitive)."
+}

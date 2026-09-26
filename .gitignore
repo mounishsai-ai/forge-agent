@@ -4,6 +4,4 @@ __pycache__/
 .env
 .venv/
 .forge/
-evals/results/
-evals/workdirs/
 CLAUDE.local.md

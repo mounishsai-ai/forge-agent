@@ -1,0 +1,6 @@
+{
+  "id": "feature-slugify",
+  "category": "feature",
+  "difficulty": "easy",
+  "prompt": "Implement the slugify(text, max_length=None) function in slugify.py, following the docstring already written there exactly (it covers unicode handling, repeated separators, and the max_length option). There's a starter test file test_slugify.py with a few basic cases you can check yourself against."
+}

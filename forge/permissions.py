@@ -11,7 +11,8 @@ import re
 from forge.tools.base import Tool
 
 BLOCKLIST = [
-    r"\brm\s+-[a-z]*r[a-z]*f?\s+(/|~|\*|\$HOME)(\s|$)",   # rm -rf / , rm -rf ~
+    # recursive rm (any flag order/splitting) aimed at /, /*, ~, $HOME or a bare *
+    r"\brm\s+(?=(?:[^;&|]*\s)?-[a-zA-Z]*[rR])[^;&|]*\s(/|/\*|~/?|~/\*|\$HOME/?|\*)(\s|;|&|\||$)",
     r"Remove-Item\b.*-Recurse.*\b[A-Za-z]:\\?\s*$",      # wipe a whole drive
     r"\b(format|mkfs|diskpart)\b",
     r"\b(shutdown|reboot|Stop-Computer|Restart-Computer)\b",

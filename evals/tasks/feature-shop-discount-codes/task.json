@@ -1,0 +1,6 @@
+{
+  "id": "feature-shop-discount-codes",
+  "category": "feature",
+  "difficulty": "hard",
+  "prompt": "We need discount code support in our shop package (shop/models.py, shop/discounts.py, shop/pricing.py). The Cart, Product, and DiscountCode classes already exist. Implement calculate_total(cart, registry) in shop/pricing.py, following the docstring already written there exactly: it looks up the cart's active discount code in a registry dict, applies a percent-off or fixed-amount-off discount if the cart's subtotal meets the code's minimum spend, raises ValueError for a code that isn't in the registry, and never lets the total go below zero. A cart only ever has one discount code active at a time (applying a new one replaces the old one), so there's no stacking to worry about."
+}

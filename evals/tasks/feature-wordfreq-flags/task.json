@@ -1,0 +1,6 @@
+{
+  "id": "feature-wordfreq-flags",
+  "category": "feature",
+  "difficulty": "medium",
+  "prompt": "wordfreq.py is a small CLI that prints word frequencies from a text file, most-frequent first (ties broken alphabetically). Add two optional flags: `--reverse`, which flips the sort so the least-frequent words are listed first (ties still broken alphabetically), and `--limit N`, which restricts the output to only the first N lines after sorting. The two flags should compose (e.g. `--reverse --limit 3` prints the 3 least-frequent words). Don't change the output format or the default behavior when neither flag is passed."
+}

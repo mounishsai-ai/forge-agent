@@ -10,6 +10,9 @@ SHELL_NAME = "PowerShell" if IS_WINDOWS else "bash"
 
 def run_shell(command: str, timeout: int = config.SHELL_TIMEOUT) -> str:
     # PowerShell on Windows, bash elsewhere. Each call is a fresh process (no state carries over).
+    # FORGE_SHELL_INIT (optional) runs first every time, e.g. "source venv/bin/activate".
+    if config.SHELL_INIT:
+        command = f"{config.SHELL_INIT}\n{command}"
     if IS_WINDOWS:
         argv = ["powershell", "-NoProfile", "-NonInteractive", "-Command", command]
     else:

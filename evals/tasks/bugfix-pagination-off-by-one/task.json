@@ -1,0 +1,6 @@
+{
+  "id": "bugfix-pagination-off-by-one",
+  "category": "bugfix",
+  "difficulty": "easy",
+  "prompt": "Users are complaining that our paginated list view is dropping the last item on every page. The pagination logic lives in paginate.py. There's already a test in test_paginate.py that reproduces the problem (run `pytest test_paginate.py` to see it fail). Fix paginate() so each page returns the full page_size items (the final page may have fewer if there aren't enough items left), and make sure the existing test passes."
+}

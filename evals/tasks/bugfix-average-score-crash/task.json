@@ -1,0 +1,6 @@
+{
+  "id": "bugfix-average-score-crash",
+  "category": "bugfix",
+  "difficulty": "easy",
+  "prompt": "report.py crashes when we run it on real data. Reproduce it with: `python report.py empty.json` (crashes with a ZeroDivisionError) and `python report.py partial.json` (crashes with a KeyError because one record has no \"score\" field). Fix scores.py so average_score(records) never crashes: it should return 0.0 for an empty list of records, and treat any record missing the \"score\" key as if its score were 0. After the fix, `python report.py empty.json` should print `Average score: 0.00` and `python report.py partial.json` should print the correctly adjusted average (missing scores counted as 0) without crashing."
+}

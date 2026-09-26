@@ -1,0 +1,6 @@
+{
+  "id": "feature-lru-cache",
+  "category": "feature",
+  "difficulty": "hard",
+  "prompt": "Implement the LRUCache class in lru_cache.py exactly per the docstring already there: a fixed-capacity cache with get/put that evicts the least-recently-used entry when full, plus __len__. There's a starter test file test_lru_cache.py with a couple of basic cases to check yourself against."
+}
