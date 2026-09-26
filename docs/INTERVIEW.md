@@ -126,12 +126,47 @@ a resumed session starts those fresh. Also worth knowing: `--resume` only works 
 **Q: What's the sub-agent / `task` tool for?**
 A: `forge/subagent.py`'s `make_task_tool` lets the main agent spin up a second `Agent` with its own
 empty history, `Permissions("readonly")`, and only the read-only tools (`read_file`, `list_dir`, `glob`,
-`grep`) — no `write_file`/`edit_file`/`run_shell`, no `task` tool of its own (so it can't recurse), and
+`grep`, `skill`) — no `write_file`/`edit_file`/`run_shell`, no `task` tool of its own (so it can't recurse), and
 no `todo` either: `forge/tools/__init__.py` excludes `todo` from `READ_ONLY_TOOLS` by name specifically
 so a sub-agent can't touch the parent's shared task list. It's for broad exploration ("find where X is implemented") that would otherwise dump a lot of
 file content into the main conversation; the sub-agent does that reading in its own context and returns
 one short report. Its token usage is added back onto the parent's `Usage`, so cost tracking still
 reflects the real total.
+
+**Q: What's "progressive disclosure" and where does Forge use it?**
+A: The general idea — used the same way in Claude Code's own skills feature — is: don't pay the
+token cost of information the model might need until it actually needs it; show it a cheap menu
+first, and let it ask for the full thing on demand. Forge's skills feature (`forge/skills.py`,
+`forge/tools/skill.py`) is the concrete example: `render_skill_index()` puts only `name:
+description` for every installed skill into the system prompt — one line each — and that function
+returns `""` outright when nothing is installed, so a project with zero skills pays zero extra
+prompt tokens. The full `SKILL.md` body (which can be arbitrarily long — conventions, examples,
+reference snippets) is only read from disk when the model calls the `skill` tool with a specific
+name, which it's told to do in the system prompt when a task matches one of the listed
+descriptions. The naive alternative — concatenating every skill's full body into the system prompt
+at startup — would make the prompt grow with the number of skills *installed*, not the number
+actually *used* on a given task, which is exactly backwards for a feature meant to scale.
+
+**Q: How are skills different from project memory files (`FORGE.md`/`AGENTS.md`), and from the sub-agent?**
+A: All three are ways of getting more instructions or capability into the model's hands without
+touching Forge's own code, but they trade off differently on *when* the content is paid for and
+*what shape* it's in:
+- **Memory files** (`prompts.load_memory`) are unconditional and always-on: their full contents go
+  into every system prompt, every turn, whether or not the current task needs them. Good for things
+  that are almost always relevant (house style, "never do X").
+- **Skills** are lazy and named: only a one-line `name: description` is always-on; once the model
+  decides its description matches the current task, its full body is loaded (via the `skill` tool)
+  only for that one task. Good for conventions that only matter some of the time (test-writing
+  rules, commit message style) where paying the token cost on every turn regardless would be
+  wasteful.
+- **Sub-agents** (`task` tool) aren't instructions at all — they're a second, independent `Agent`
+  with its own empty context, read-only tools, and no memory of the parent's conversation. They
+  solve a different problem: keeping *exploration output* (file dumps from reading a big codebase)
+  out of the main conversation, not deciding which instructions the model sees.
+Concretely: a memory file could tell the model "always run tests with pytest, never unittest" (true
+every time); a skill would hold the multi-paragraph "how we structure a test file here" convention
+(only relevant when actually writing tests); a sub-agent would be dispatched to "find every place
+`Permissions.check` is called" (a reading task whose output shouldn't bloat the main history).
 
 **Q: How does permission mode `auto` differ from just trusting the model?**
 A: `auto` skips the "ask the user" step for tools with `needs_permission=True`, but the `BLOCKLIST`
@@ -172,9 +207,11 @@ a nudge inside the next prompt, not an actual break — the loop keeps running u
 **Q: What happens on Ctrl+C?**
 A: At the input prompt, it exits the REPL (session is still saved). Mid-turn, `Agent.run` catches
 `KeyboardInterrupt` and calls `_repair_history`: if the last history entry is a model turn with pending
-tool calls that never got a response, it appends a synthetic `"Cancelled by user."`
-`function_response` for each one — the Gemini API rejects a history with an unanswered `function_call`,
-so this keeps the next request valid.
+tool calls that never got a response, it appends a `function_response` for each one — the Gemini API
+rejects a history with an unanswered `function_call`, so this keeps the next request valid. Calls that
+had already finished get their **real** result (tracked in `self._finished` as they complete); only the
+unfinished ones get `"Cancelled by user."`, so the model never believes a file write that really
+happened was cancelled.
 
 **Q: How would you evaluate whether this agent is actually good?**
 A: The plan (see `evals/`, currently a placeholder) is a small suite of coding tasks, each with a
@@ -217,12 +254,40 @@ only inspects `run_shell` command strings, not `write_file`/`edit_file` argument
 real sandbox (container/VM/restricted user), which is out of scope for this project but is exactly the
 kind of gap I'd flag in a design review.
 
+**Q: What is MCP and why support it?**
+A: The Model Context Protocol is an open standard for connecting AI apps to tools. A *server* (for
+GitHub, a database, the filesystem...) exposes tools once, and any *client* (Claude Code, Cursor, Forge)
+can use them. Supporting it means Forge gets hundreds of existing integrations without me writing any
+of them. The config file even uses Claude Code's format, so users can copy theirs over.
+
+**Q: How does your MCP client work?**
+A: `forge/mcp_client.py` is one stdlib-only file, with no SDK, and it's mostly comments. It launches each configured server as a
+subprocess and speaks JSON-RPC 2.0 over its stdin/stdout, one JSON object per line (the spec's stdio
+framing). It does the `initialize` → `notifications/initialized` handshake, then `tools/list`. Each remote
+tool is wrapped as a normal Forge `Tool` called `mcp__<server>__<tool>`, with the server's JSON schema as
+the parameters. Its `run()` sends `tools/call` and joins the returned text. Because the wrapped tool
+looks like any other tool, the agent loop, permissions, hooks and truncation all work unchanged. The
+interesting part is concurrency. A reader thread matches responses to requests by `id`, and each waiting
+caller blocks on an Event with a timeout. A second thread drains stderr, because an undrained pipe
+deadlocks the server. I tested it offline with a tiny fixture server and live with Gemini, using both the fixture and the
+official `@modelcontextprotocol/server-filesystem`.
+
+**Q: Isn't running third-party MCP servers a security risk?**
+A: Yes. A stdio server is arbitrary code running as the user, with full access to the machine as soon
+as it starts, even before any tool call. So the real trust decision is at config time: only add servers
+you'd be willing to `pip install`. At runtime, every MCP tool has `needs_permission=True`, so in `ask`
+mode each call shows its arguments and needs a y/n. A server can't shadow a built-in like `read_file`,
+because the name prefix and `add_tools` both prevent it. MCP results also go through the same truncation as
+other tools. The remaining risk is prompt injection: a tool's output or even its *description* can
+contain instructions aimed at the model ("tool poisoning"). Forge doesn't defend against that beyond
+the permission prompt, so `--yes` with untrusted servers is a bad idea.
+
 ## Comparisons
 
 **Q: How does this compare to Claude Code / Cursor / Aider?**
 A: Same fundamental shape — an LLM-driven loop with file/shell tools and a permission layer — built
 from scratch rather than on top of an agent framework, specifically so every part of the loop is mine to
-explain. It's far smaller in scope: no IDE integration, no streaming UI, no multi-file diff review UX,
+explain. It's far smaller in scope: no IDE integration, no multi-file diff review UX,
 one provider family (Gemini) instead of pluggable providers, and no sandboxed execution environment.
 What it does have that's directly comparable: exact-match file editing (similar spirit to how these
 tools avoid line-number drift), a permission/approval flow, project memory files (`FORGE.md`/`AGENTS.md`,
@@ -257,7 +322,18 @@ indefinitely — it eventually returns `"(stopped after N turns without finishin
 forever.
 
 **Q: Are tool calls within one model turn run in parallel?**
-A: No — `agent.py` iterates over `resp.tool_calls` in a plain Python `for` loop and executes them one at
-a time, then bundles all their results into a single `function_response`-bearing message before the
-next model call. Simpler to reason about, log, and debug; the tradeoff is latency on tasks with several
-independent tool calls in one turn.
+A: Partly. Runs of 2+ consecutive **read-only** calls (no `needs_permission`, and not `task`/`todo`)
+run concurrently in a `ThreadPoolExecutor` (`Agent._execute_parallel`); writes/shell run alone in their
+original position, because they may prompt the user and their order matters. Only `tool.run()` runs in
+threads — permission checks, hooks and printing stay on the main thread in call order — and the
+`function_response` parts go back in exactly the order the model asked. Tests prove the concurrency with
+a `threading.Barrier` that only opens if two tools are running at the same time.
+
+**Q: How does streaming work, and why is it tricky with Gemini?**
+A: In the REPL, `GeminiLLM.generate_stream` uses `generate_content_stream` and shows each text chunk
+live (rich `Live` + Markdown). The tricky part is the history: the reply arrives as many parts, and
+Gemini attaches **thought signatures** (encrypted reasoning state that must be sent back) to specific
+parts — in my tests, the first function_call, or a final empty-text part. So `_merge_part` only glues
+plain text pieces together and keeps every signed or function_call part exactly as it arrived. Also,
+retries stop once text has been shown, otherwise the user would see the answer twice. Headless mode
+keeps the simpler non-streaming `generate()`.

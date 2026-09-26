@@ -23,6 +23,13 @@ Vertex AI).
   prompt gets large; `/compact` and `/clear` to force it.
 - **Sub-agent (`task` tool)** — delegate research to a fresh, read-only agent so exploring a big
   codebase doesn't fill up the main conversation.
+- **Skills** (`.forge/skills/<name>/SKILL.md`) — packaged, on-demand instructions the model loads
+  with a `skill` tool only when a task matches; the system prompt carries just a name+description
+  index so unused skills cost almost nothing.
+- **MCP client** — use tools from any stdio Model Context Protocol server configured in
+  `.forge/mcp.json` (Claude Code's format); pure stdlib, no SDK.
+- **Custom slash commands** (`.forge/commands/<name>.md`) — `/<name> args` in the REPL sends that
+  file as your next message, with `$ARGUMENTS` replaced.
 - **Todo tool** — the model keeps its own visible task list for multi-step work.
 - **Retry / fallback / circuit breaker** — exponential backoff with jitter, automatic fallback across
   models, and a breaker that skips a model that just failed instead of retrying it every turn.
@@ -70,6 +77,7 @@ forge --resume 20260926-140501          # continue a specific session by id
 | `/mode [ask\|auto\|readonly]` | Show or change the permission mode |
 | `/sessions` | List saved sessions |
 | `/exit` | Quit (session is auto-saved) |
+| `/<name> [args]` | Run a custom command from `.forge/commands/<name>.md` (see Custom slash commands below) |
 
 ## Configuration
 
@@ -109,11 +117,75 @@ commands run through `shell=True`, which is **cmd.exe** on Windows, not PowerShe
 
 `match` is a regex tested against the tool name with `re.fullmatch`.
 
+## MCP servers
+
+Forge is a [Model Context Protocol](https://modelcontextprotocol.io) client, so it can use tools from
+any stdio MCP server. Configure servers in `.forge/mcp.json` (project) or `~/.forge/mcp.json` (user);
+the format matches Claude Code's, and the project file wins on a name clash:
+
+```json
+{
+  "mcpServers": {
+    "fs": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "."] },
+    "mytool": { "command": "python", "args": ["my_server.py"], "env": { "API_TOKEN": "${API_TOKEN}" } }
+  }
+}
+```
+
+Each remote tool shows up as `mcp__<server>__<tool>` (e.g. `mcp__fs__read_text_file`) and **always
+asks permission** in `ask` mode. `/mcp` lists servers and their tools. A server that fails to start
+prints a warning to stderr and Forge carries on without it. Only stdio servers are supported (no HTTP).
+
 ## Project memory
 
 Drop a `FORGE.md` or `AGENTS.md` file in your home directory (`~/.forge/FORGE.md`) for user-level
 instructions, or in your project root for project-level ones — both are loaded into the system prompt
 at startup (`forge/prompts.py`).
+
+## Skills
+
+A skill is a folder with a `SKILL.md`: packaged, on-demand instructions for one kind of task
+(e.g. "how we write tests here," "our commit message style"), the same idea as Claude Code's
+skills. Drop it in `.forge/skills/<name>/` (project) or `~/.forge/skills/<name>/` (user):
+
+```
+.forge/skills/write-tests/SKILL.md
+    ---
+    name: write-tests
+    description: Conventions for writing pytest tests in this repo.
+    ---
+    <the full instructions>
+```
+
+Only `name` + `description` are preloaded into the system prompt on every turn — that's
+**progressive disclosure**: the model gets a cheap, always-visible menu, and only pays the token
+cost of a skill's full body when the `skill` tool actually loads it, on demand, for the one skill
+that matches the current task. A project with zero skills installed pays nothing extra at all.
+
+Two ready-made examples ship in [`examples/skills/`](examples/skills/): `write-tests` (pytest
+conventions) and `git-commit` (commit message style). Try one:
+
+```powershell
+Copy-Item -Recurse "examples\skills\write-tests" ".forge\skills\write-tests"
+```
+
+## Custom slash commands
+
+`.forge/commands/<name>.md` (project) or `~/.forge/commands/<name>.md` (user) — typing
+`/<name> some args` in the REPL sends that file's content as your next message, with
+`$ARGUMENTS` replaced by `some args`. Built-in commands (`/help`, `/clear`, ...) always win on a
+name clash, and `/help` lists any custom commands it finds too. Example ships in
+[`examples/commands/review.md`](examples/commands/review.md):
+
+```powershell
+Copy-Item "examples\commands\review.md" ".forge\commands\review.md"
+```
+
+Then in the REPL:
+
+```
+> /review auth.py
+```
 
 ## Project layout
 
@@ -130,17 +202,23 @@ forge/
   hooks.py             .forge/hooks.json pre_tool / post_tool
   context.py           tool output truncation + auto-compaction
   session.py           save/resume conversations as JSON
-  prompts.py           system prompt + project memory loading
+  prompts.py           system prompt + skills index + project memory loading
+  skills.py            discovers .forge/skills/*/SKILL.md + .forge/commands/*.md, parses/renders them
   subagent.py          the `task` tool (delegates to a fresh sub-agent)
+  mcp_client.py        MCP client: stdio servers from .forge/mcp.json -> mcp__<server>__<tool> tools
   ui.py                ConsoleUI (interactive) / QuietUI (headless)
   tools/
     base.py             Tool/ToolError, resolve(), truncate(), files_read guard
     read_file.py, list_dir.py, glob.py, grep.py    (read-only)
     write_file.py, edit_file.py, run_shell.py       (need permission)
     todo.py             the model's own task list
+    skill.py            the `skill` tool: load one installed skill's full SKILL.md body
 docs/
   ARCHITECTURE.md     module-by-module design + lifecycle walkthrough
   INTERVIEW.md         interview Q&A grounded in this code
+examples/
+  skills/write-tests/, skills/git-commit/    copy into .forge/skills/ to try
+  commands/review.md                          copy into .forge/commands/ to try
 evals/                 (planned) headless eval suite; see Evals below
 ```
 

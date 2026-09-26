@@ -11,7 +11,7 @@ import os
 import sys
 import time
 
-from forge import __version__, config, context, session
+from forge import __version__, config, context, mcp_client, session, skills
 from forge.agent import Agent
 from forge.hooks import Hooks
 from forge.llm import GeminiLLM
@@ -31,6 +31,7 @@ HELP = """Commands:
   /todo            show the current task list
   /mode [ask|auto|readonly]  show or change permission mode
   /sessions        list saved sessions
+  /mcp             list MCP servers and their tools
   /exit            quit (session is auto-saved)"""
 
 
@@ -42,6 +43,7 @@ def build_agent(args, ui) -> Agent:
     if not args.no_subagents:
         task_tool = make_task_tool(agent)
         agent.tools[task_tool.name] = task_tool
+    mcp_client.attach(agent)   # tools from .forge/mcp.json servers (mcp__<server>__<tool>)
     return agent
 
 
@@ -127,6 +129,11 @@ def handle_command(text: str, agent: Agent, ui) -> str | None:
         return "exit"
     elif cmd == "/help":
         console.print(HELP)
+        custom = skills.discover_commands()
+        if custom:
+            console.print("\nCustom commands (.forge/commands/*.md):")
+            for name in sorted(custom):
+                console.print(f"  /{name}")
     elif cmd == "/clear":
         agent.history.clear()
         agent.last_prompt_tokens = 0
@@ -154,8 +161,20 @@ def handle_command(text: str, agent: Agent, ui) -> str | None:
         ui.info(f"Permission mode: {agent.permissions.mode}")
     elif cmd == "/sessions":
         ui.info("\n".join(session.list_sessions()) or "No sessions.")
+    elif cmd == "/mcp":
+        console.print(mcp_client.status(), highlight=False, markup=False)
     else:
-        ui.error(f"Unknown command {cmd}. Try /help.")
+        # Not a built-in: check .forge/commands/<name>.md before giving up. Built-ins above
+        # always win on a name clash since they're checked first in this elif chain.
+        custom = skills.discover_commands()
+        name = cmd[1:]
+        if name in custom:
+            try:
+                agent.run(skills.render_command(custom[name], arg))
+            except Exception as e:   # same handling as a plain-text turn in repl()
+                ui.error(f"{type(e).__name__}: {e}")
+        else:
+            ui.error(f"Unknown command {cmd}. Try /help.")
     return None
 
 

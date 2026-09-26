@@ -28,13 +28,15 @@ control loop, not the model, is the part of this codebase worth defending in an 
    |          if it's already too big for this call        |
    |          |                                            |
    |          v                                            |
-   |   llm.generate(history, tools, system)                |
+   |   llm.generate(...)  or  llm.generate_stream(...)    |
+   |   (streamed live in the REPL, plain in headless)      |
    |          |                                            |
    |          v                                            |
    |   model wants tool calls? ----no----> return resp.text|
    |          |yes                              (done)     |
    |          v                                            |
-   |   for each requested call:                            |
+   |   for each requested call (consecutive read-only calls |
+   |   run in parallel threads; results kept in call order):|
    |     Permissions.check()  -> denied? -> error string    |
    |     Hooks.pre_tool()     -> vetoed? -> error string     |
    |     tool.run(**args)     -> output (or ToolError text)  |
@@ -78,11 +80,16 @@ in `subagent.py` builds a second, differently-configured `Agent` the exact same 
                                    v
                               forge/tools/*  (registered in tools/__init__.py)
                               base.py (Tool, ToolError, resolve, truncate, files_read)
-                              read_file / list_dir / glob / grep   (read-only)
+                              read_file / list_dir / glob / grep / skill   (read-only)
                               write_file / edit_file / run_shell / todo  (needs_permission)
 
                               context.py (compaction) is called directly by agent.py and cli.py,
                               not by the tools.
+
+ skills.py (discover_skills/discover_commands, .forge/skills, .forge/commands) is read by
+ prompts.py (system-prompt skill index), tools/skill.py (the skill tool's full-body load),
+ and cli.py (custom slash-command dispatch) -- three different callers of the same discovery
+ code, which is the whole reason it is its own module instead of living inside any one of them.
 ```
 
 ## Module-by-module
@@ -111,6 +118,18 @@ give it the conversation so far, get back a provider-neutral `LLMResponse` (`tex
   immediately; codes in `RETRYABLE = {429, 500, 502, 503, 504}` get the retry+fallback treatment.
   `--no-fallback` passes `fallbacks=[]`, so only `self.model` is ever tried — useful for reproducible
   evals where you don't want a silent model swap.
+- **Streaming** (`generate_stream(history, tools, system, on_text)`): used by the interactive REPL.
+  It calls `client.models.generate_content_stream` and passes each visible (non-thought) text chunk to
+  `on_text` as it arrives, so the user watches the answer being written. Chunks are then glued back into
+  one `Content` by `_merge_part`: consecutive plain-text parts are concatenated, but **function_call
+  parts and any part carrying a `thought_signature` are kept exactly as they came** (verified with real
+  calls: the signature rides on the first function_call part, or on a final `text=""` part after a
+  text answer; dropping or merging it would break later turns). The assembled response is wrapped in a
+  normal `GenerateContentResponse` and goes through the same `_parse`, so `generate` and
+  `generate_stream` return identical `LLMResponse`s. Retry/fallback/circuit-breaker are shared
+  (`_call_with_retry(request=..., can_retry=...)`), with one rule added: **once any text reached the
+  screen, errors are raised instead of retried**, because a retry would print the same words twice.
+  The whole stream is consumed inside the retry `try` because errors can surface mid-iteration.
 - `_parse`: pulls token counts out of `usage_metadata`, prices the call via `pricing.cost(model, usage)`
   using the model that **actually answered** (important once fallback has kicked in), and separates
   `function_call` parts from plain-text parts (skipping `part.thought`, Gemini's internal reasoning
@@ -130,14 +149,30 @@ give it the conversation so far, get back a provider-neutral `LLMResponse` (`tex
   discounted in the cost formula.
 
 ### `forge/agent.py` — the loop
-`Agent.run(user_text)` is described in the diagram above. Two more details worth naming:
+`Agent.run(user_text)` is described in the diagram above. More details worth naming:
+- **Streaming or not** (`_ask_model`): if the UI has `streams = True` (ConsoleUI) and the LLM has
+  `generate_stream`, the turn is streamed inside `ui.stream()` and the final text is *not* printed
+  again. Otherwise (QuietUI for headless/evals/sub-agents, test fakes) it's plain `generate()` behind a
+  spinner. The loop itself doesn't care: both return the same `LLMResponse`.
+- **Parallel read-only tools** (`_run_tool_calls`, `_execute_parallel`): when one model turn asks for
+  several tools, runs of 2+ *consecutive* calls that can't change anything (`needs_permission=False`,
+  and not `task` or `todo`, see `SEQUENTIAL_ONLY`) run at the same time in a `ThreadPoolExecutor`.
+  Permission checks, hooks and all printing stay on the main thread in call order; only `tool.run()`
+  goes to worker threads. A write/shell call (which may prompt the user) always runs alone, in its
+  original position: `[read a, read b, edit c, read d]` -> `(a || b)`, then `c`, then `d`. The
+  `function_response` parts go back in exactly the order the model asked. `task` is excluded because
+  each sub-agent is a long chain of API calls; `todo` because it rewrites one shared list. Waiting
+  uses short timeouts (`_wait`) because on Windows an untimed wait ignores Ctrl+C.
 - **Loop detection** (`recent_calls`): if the exact same tool name + JSON-serialized args repeats 3
   times in a row, a `[harness]` text part is appended telling the model to stop and try something
   else. This does **not** stop the loop — it's a nudge inside the next prompt, not a hard break.
 - **Ctrl+C history repair** (`_repair_history`): if the user interrupts mid-turn, the last message in
   `history` may be a model turn that requested tool calls with no results yet. The Gemini API rejects a
   history where a `function_call` has no matching `function_response`, so `_repair_history` appends a
-  synthetic `"Cancelled by user."` response for each dangling call so the next turn's request is valid.
+  response for every call: the **real result** for calls that had already finished (tracked as they
+  complete in `self._finished`, including parallel calls that finished in the background), and
+  `"Cancelled by user."` only for calls that never completed. Otherwise the model would think a file
+  write that really happened was cancelled.
 - **`_execute`** never lets a tool crash the agent: `ToolError` (expected failures like "file not
   found") and bare `TypeError` (model passed bad arguments) are caught explicitly, and any other
   `Exception` is caught as a last resort — every failure becomes text the model reads back, not a
@@ -232,8 +267,8 @@ and can't overwrite the parent's plan.
 ### `forge/subagent.py` — the `task` tool
 `make_task_tool(parent)` returns a `Tool` whose `run` builds a **second, fresh `Agent`**: same `llm`
 (so it shares the parent's circuit-breaker/model state), `Permissions("readonly")`, `QuietUI(verbose=True)`,
-`tools=READ_ONLY_TOOLS` (`read_file`, `list_dir`, `glob`, `grep` — `todo` is explicitly excluded, see
-above), `max_turns=25`, no `hooks` (hooks are simply not passed in, so a
+`tools=READ_ONLY_TOOLS` (`read_file`, `list_dir`, `glob`, `grep`, `skill` — `todo` is explicitly
+excluded, see above), `max_turns=25`, no `hooks` (hooks are simply not passed in, so a
 sub-agent's tool calls never trigger `.forge/hooks.json`), and **no `task` tool of its own**, which is
 what prevents infinite sub-agent recursion. Its system prompt is `SUBAGENT_PROMPT` glued to the
 parent's prompt *minus its first paragraph* (`parent.system_prompt.split("\n\n", 1)[1]`), so it still
@@ -244,9 +279,49 @@ files) fills the context with file dumps; delegating that to a sub-agent keeps o
 report in the main conversation, at the cost of tokens spent inside the child (which the parent still
 pays for).
 
+### `forge/mcp_client.py` — tools from external MCP servers
+A small Model Context Protocol client written with only the standard library (`subprocess`,
+`threading`, `json`). It doesn't use the official `mcp` SDK, so the whole protocol fits in one file you can read.
+`cli.build_agent` calls `mcp_client.attach(agent)`, which:
+1. **Loads config** from `~/.forge/mcp.json` then `.forge/mcp.json` (`{"mcpServers": {name: {command, args, env}}}`;
+   project wins on a clash; `${VAR}` in args/env is expanded; `env` is *merged* into the parent environment).
+2. **Starts each server** as a child process with binary stdin/stdout/stderr pipes. The command goes through
+   `shutil.which` so `npx` resolves to `npx.cmd` on Windows.
+3. **Speaks JSON-RPC 2.0 over stdio.** Per the spec (2025-11-25 stdio transport), each message is one UTF-8
+   line of JSON with no embedded newlines. A background thread reads stdout line by line and hands
+   each response to the request waiting on that `id`. It uses a `threading.Event` for each pending request.
+   A second thread drains stderr into a 50-line ring buffer. If nothing read it, the pipe would fill and
+   the server would freeze. The last few lines appear in error messages.
+   Requests that the server sends to us are answered: `ping` gets `{}`, and anything else gets `-32601`.
+4. **Handshake:** `initialize` (protocolVersion `2025-11-25`, empty capabilities, clientInfo) is followed by
+   `notifications/initialized`, then `tools/list` (following `nextCursor` pagination).
+5. **Wraps each remote tool** as a normal `Tool` named `mcp__<server>__<tool>`. Characters Gemini doesn't allow
+   become `_` and the name is capped at 64 characters. The tool uses `needs_permission=True`, and its `run(**kwargs)`
+   sends `tools/call`. The text content items are joined; images and other binary items become a placeholder.
+   `isError: true` or a JSON-RPC error raises `ToolError`, so the model sees it as a failed tool call.
+   `tools.add_tools(agent, tools)` adds them to that one agent, never to `ALL_TOOLS`, and never replaces
+   an existing name. Sub-agents therefore don't get MCP tools.
+
+**Failure handling:** a server that can't start, exits, or doesn't answer within 30s prints a warning
+to **stderr** (so `--json` stdout stays clean) and is skipped. Tool calls time out after 120s, and when
+that happens Forge sends `notifications/cancelled`. **Shutdown** (via `atexit`) follows the spec: it
+closes stdin, waits 2s, and then terminates. On Windows it uses `taskkill /T` because `npx.cmd`'s node
+grandchild would otherwise be orphaned.
+**Schemas:** a live test showed that Gemini's `parameters_json_schema` accepts MCP input schemas as-is. That
+included the zod-generated schemas of `@modelcontextprotocol/server-filesystem`, with `$schema` and
+`additionalProperties`, and it also accepts a Pydantic/FastMCP-style schema that uses `$defs`/`$ref`, `anyOf` with `null`, `title` and
+`default`. `sanitize_schema` therefore only strips `$schema`/`$id`/`$comment` and makes sure there is an
+object type with `properties`. **Limits:** only stdio (no Streamable HTTP), and no resources or prompts,
+just tools. It also doesn't implement the stateless 2026-07-28 protocol revision, which drops `initialize`.
+Servers that support only that revision would reject the handshake.
+
 ### `forge/ui.py` — output is never inline in the agent
 `ConsoleUI` renders Markdown answers, syntax-highlighted shell previews, and interactive y/n/a prompts
-via `rich`. `QuietUI` (used by `forge -p`) subclasses it and turns off everything except errors and,
+via `rich`. It sets `streams = True` and provides `stream()`, a context manager yielding the
+`on_text` callback: a "thinking..." spinner until the first text chunk, then a `rich.live.Live` view
+re-rendering the growing Markdown on each chunk (rich allows only one live display at a time, and the
+spinner is one, so the spinner is stopped first; both are stopped in a `finally`, so Ctrl+C or an API
+error never leaves the terminal broken). `QuietUI` sets `streams = False`. `QuietUI` (used by `forge -p`) subclasses it and turns off everything except errors and,
 with `--verbose`, the tool-call line; critically, **`QuietUI.ask_permission` always returns `"n"`** —
 so a headless run without `--yes` (mode `auto`) can never approve a write, edit, or shell call; it will
 always be denied and the model told so. **Why the split:** `Agent` never calls `print()` — it calls
@@ -266,11 +341,64 @@ todo list, `files_read`, and `always_allowed` tools — a resumed session starts
 runs are not resumable.
 
 ### `forge/prompts.py` — building the system prompt
-`build_system_prompt()` concatenates: `BASE` (role + house rules), an `Environment:` block (cwd, OS,
-shell name, date), and `load_memory()` — the contents of `FORGE.md`/`AGENTS.md` from `~/.forge/` (user
-level) then the current working directory (project level), each wrapped in an `<memory file="...">`
-tag. **Why not walk up parent directories:** simplicity; it checks exactly those two locations, so a
-memory file in a parent folder of the cwd is not picked up.
+`build_system_prompt()` concatenates: `BASE` (role + house rules, including one fixed sentence
+telling the model to call `skill(name)` before matching work), an `Environment:` block (cwd, OS,
+shell name, date), `skills.render_skill_index()` (only appended if non-empty — see below), and
+`load_memory()` — the contents of `FORGE.md`/`AGENTS.md` from `~/.forge/` (user level) then the
+current working directory (project level), each wrapped in an `<memory file="...">` tag. **Why
+not walk up parent directories:** simplicity; it checks exactly those two locations, so a memory
+file in a parent folder of the cwd is not picked up.
+
+### `forge/skills.py` — skills and custom slash commands
+Both features are just files a user drops under `.forge/` (project) or `~/.forge/` (user), with
+zero changes to Forge's own code — the same idea as `FORGE.md`/`AGENTS.md` project memory, but
+packaged and on-demand instead of always loaded. This one module backs three different callers:
+`prompts.py` (system-prompt index), `tools/skill.py` (the tool that loads a skill's full body),
+and `cli.py` (custom slash-command dispatch) — which is why it's a standalone module rather than
+living inside any single one of them.
+
+**Skills** mirror Claude Code's: `.forge/skills/<name>/SKILL.md`, a small hand-written frontmatter
+parser (`_parse_frontmatter` — a few lines of string splitting, not PyYAML, since only two flat
+fields are ever needed) splits it into `{name, description}` plus a body. `discover_skills()`
+scans the user directory then the project directory and returns `{name: Skill}`; because a later
+entry overwrites an earlier one in that dict, a project skill silently wins over a same-named user
+skill — the identical convention `prompts.load_memory` already uses (user first, then project).
+
+**Progressive disclosure** is the actual design point: `render_skill_index()` — what
+`build_system_prompt` appends — emits only `name: description` per skill, one line each, and
+returns `""` when nothing is installed, so a project using zero skills pays zero extra prompt
+tokens for the feature. The full instructions only get read, on demand, by `load_skill(name)`
+(called from `forge/tools/skill.py`, the `skill` tool) once the model has already decided a task
+matches one. Putting every skill's entire body into the system prompt up front — the naive
+alternative — would make prompt size scale with skills *installed*, not skills *used*, which
+defeats the purpose of having more than one.
+
+**Read-before-edit was already solved; skills reuse it, they don't reinvent it.** A skill's
+folder can hold sibling files (reference scripts, examples) beyond `SKILL.md`; `load_skill`
+returns their **absolute** paths (not bare filenames — `tools/base.resolve` resolves a relative
+path against `os.getcwd()`, not the skill's own folder, and `.forge` is in `IGNORED_DIRS` so
+`glob`/`grep` can't find them either), so the model can `read_file` them directly with the path
+it was given.
+
+**Custom commands** (`.forge/commands/<name>.md`) follow the exact same discover-then-override
+pattern (`discover_commands()`), and `render_command(path, args)` does one `str.replace("$ARGUMENTS",
+args)` — deliberately not a templating engine, since a command file is a single small string
+substitution, not a program. `cli.py`'s `handle_command` checks every built-in (`/help`, `/clear`,
+...) in its `elif` chain **first**; only the final `else` falls through to `skills.discover_commands()`,
+so a custom command can never shadow a built-in of the same name, only add a new one.
+
+**BOM handling:** every file this module reads is opened with `encoding="utf-8-sig"`, not plain
+`"utf-8"` — PowerShell's `Out-File`/`Set-Content` default to writing a UTF-8 byte-order mark on
+Windows (see this project's own environment notes), and a plain `"utf-8"` decode leaves that BOM
+on the first line, so `lines[0].strip() != "---"` and the frontmatter parser silently sees no
+frontmatter at all.
+
+**Known limitations:** only files at the top level of a skill folder are listed (no recursive
+walk); the skill index is computed once when `build_system_prompt()` runs at agent construction,
+so installing a new skill mid-session needs a restart (or `/clear`, which rebuilds nothing — only
+`main.py`/`build_agent` calls `build_system_prompt()`) to appear; and `render_command`'s
+`$ARGUMENTS` substitution has no escaping, so a command file that happens to contain that literal
+string for an unrelated reason would also get replaced.
 
 ### `forge/pricing.py` — cost estimate
 `cost(model, usage)` looks up a flat per-million-token input/output rate in `PRICES` and returns
@@ -290,13 +418,16 @@ report. Thinking tokens are billed at the output rate (`usage.output_tokens + us
 5. The turn loop begins (up to `max_turns` iterations):
    a. `context.maybe_compact(self)` checks the previous call's token count and summarizes history first
       if it's over `COMPACT_AT_TOKENS` — this check runs on every iteration, not just the first.
-   c. `self.llm.generate(history, tools, system)` → `GeminiLLM._call_with_retry` picks a healthy model,
-      calls `client.models.generate_content`, retries/falls back on transient errors, and
+   c. `Agent._ask_model()` → `self.llm.generate(...)` (headless) or `self.llm.generate_stream(...)`
+      (REPL, text shown live) → `GeminiLLM._call_with_retry` picks a healthy model,
+      calls `client.models.generate_content[_stream]`, retries/falls back on transient errors, and
       `GeminiLLM._parse` turns the raw response into an `LLMResponse`.
    d. The raw `resp.content` is appended to `history` as-is (preserving thought signatures).
-   e. If there's `resp.text`, `self.ui.assistant_text(text)` shows it.
+   e. If there's `resp.text` and it wasn't already streamed, `self.ui.assistant_text(text)` shows it.
    f. If there are no `resp.tool_calls`, `run` returns `resp.text` — done.
-   g. Otherwise, for each call: `self.ui.tool_call(...)`, `Agent._execute(call)` → look up the `Tool`,
+   g. Otherwise `Agent._run_tool_calls` runs them (consecutive read-only calls in parallel threads,
+      everything else one at a time, results in call order). For each call: `self.ui.tool_call(...)`,
+      `Agent._execute(call)` → look up the `Tool`,
       `self.permissions.check(...)`, `self.hooks.pre_tool(...)`, `tool.run(**call.args)` inside a
       try/except that catches `ToolError`/`TypeError`/`Exception`, `self.hooks.post_tool(...)`,
       `self.ui.tool_result(...)`. The output is wrapped in a `function_response` Part.
@@ -309,11 +440,13 @@ report. Thinking tokens are billed at the output rate (`usage.output_tokens + us
 
 ## Known limitations / future work
 
-- **No streaming.** `generate_content` is a single blocking call; the user (or script) sees nothing
-  until the whole model turn is back, and the "thinking..." spinner is just a wait indicator.
-- **Sequential tool execution.** When a model turn requests multiple tool calls, `agent.py` runs them
-  one at a time in a Python `for` loop, even though nothing in principle stops them from being
-  independent. Simpler to reason about and log, but slower for multi-file tasks.
+- **Streaming is REPL-only, and a mid-stream failure is not retried.** Headless/evals use plain
+  `generate()`. If the connection dies after some text was already shown, the error is reported instead
+  of retried (a retry would repeat the text). The Live view crops very long answers while they stream
+  (the full answer is rendered when the turn ends).
+- **Only read-only tool calls run in parallel.** Writes/shell (and `task`/`todo`) still run one at a
+  time; a Ctrl+C during a parallel batch cannot stop a tool thread that is already running (it finishes
+  in the background, and its result is discarded unless it was already done).
 - **No sandboxing beyond permissions.** There is no container, VM, or restricted OS user. `Permissions`
   and `BLOCKLIST` are the only barrier between the model and the real filesystem/shell.
 - **The shell blocklist is bypassable by construction.** It's a small set of regexes checked only
