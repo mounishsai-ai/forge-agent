@@ -78,7 +78,7 @@ case "$cmd" in
     # Results live OUTSIDE ~/forge on the VM (~/swebench-runs/<name>), so `copy` never deletes them.
     dest="$REPO_DIR/swebench/out/vm-$(date +%Y%m%d-%H%M)"
     mkdir -p "$dest"
-    gcloud compute scp --recurse --project="$PROJECT" --zone="$ZONE" "$VM":~/swebench-runs "$dest"
+    gcloud compute scp --recurse --project="$PROJECT" --zone="$ZONE" "$VM":swebench-runs "$dest"
     echo "fetched into $dest (gitignored)"
     ;;
   stop)

@@ -1,0 +1,43 @@
+{
+  "dataset": "SWE-bench/SWE-bench_Verified",
+  "selection": {
+    "method": "seeded random sample",
+    "seed": 1,
+    "n": 3
+  },
+  "model": "gemini-3.7-flash",
+  "max_turns": 50,
+  "forge_commit": "3ee03c824d18a15b53fe482031e0abc487889851\ndirty: uncommitted changes present",
+  "selected": 3,
+  "with_prediction": 3,
+  "empty_patches": 0,
+  "never_ran": 0,
+  "status_latest_attempt": {
+    "ok": 3
+  },
+  "attempts": 3,
+  "attempts_with_unrecorded_cost": [],
+  "tokens": {
+    "input": 2824058,
+    "output": 6616,
+    "thinking": 40735
+  },
+  "cost_usd_logged": 2.2956,
+  "cost_usd_formula": 2.2956,
+  "cost_per_instance_usd": 0.7652,
+  "tokens_per_instance": {
+    "input": 941352,
+    "output_plus_thinking": 15783
+  },
+  "agent_minutes_mean": 6.9,
+  "harness_report": "forge-gemini-3.7-flash.forge-pilot.json",
+  "resolved": 3,
+  "resolved_rate": 1.0,
+  "harness_errors": 0,
+  "harness_infra_failures": 0,
+  "resolved_ids": [
+    "django__django-11999",
+    "psf__requests-1724",
+    "sympy__sympy-13480"
+  ]
+}

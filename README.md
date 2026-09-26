@@ -279,15 +279,27 @@ comparison table rather than any figure repeated here, since it's regenerated as
 
 ## SWE-bench
 
-Not run yet, but the scripts are written and committed under [`swebench/`](swebench/README.md): a
-`setup_vm.sh` to create/tear down a disposable GCE VM with Docker, `run_forge.py` to run Forge inside
-the official SWE-bench Verified containers for each selected instance (writing `predictions.jsonl` +
-per-instance token/cost stats), and `evaluate.sh` / `summarize.py` to grade the patches with the
-official harness and report a resolved-rate line. The VM itself has to be created and billed by
-whoever runs the pilot (see `swebench/README.md`'s step-by-step) — it hasn't been created in this
-environment yet, so there are no results to report. `swebench/README.md` also documents exactly how
-results should be reported once there are some: subset size and seed, pass@1 only, and the model +
-Forge commit named alongside the score.
+**Forge resolved 36/50 (72%) of a seeded random subset (seed 42) of
+[SWE-bench Verified](https://www.swebench.com/)**, with `gemini-3.7-flash`, pass@1 (one attempt per issue,
+no hints), max 50 turns, graded by the official `swebench` harness. Forge commit `90467a7`.
+
+| | |
+|---|---|
+| Resolved | **36 / 50 (72%)** (pilot, seed 1: 3 / 3) |
+| Avg cost per issue | $0.87 (total $43.28 in Gemini tokens) |
+| Avg agent time per issue | 5.5 min |
+| Avg tokens per issue | 1.07M input, 18K output + thinking |
+| Runs with no patch / API errors | 4 / 2 (counted as unresolved) |
+
+Each issue ran inside the official per-instance SWE-bench Docker image on a GCE VM, with Forge
+installed in an isolated runtime and the repo's own conda env activated for `run_shell`
+(`FORGE_SHELL_INIT`). Instance ids, patches, per-instance stats and the official harness report are in
+[`swebench/results/main/`](swebench/results/main/); pipeline and reproduction steps in
+[`swebench/README.md`](swebench/README.md).
+
+Caveats: a 50-instance subset (not the full 500), a single model, one attempt. A bug in patch extraction
+(file-mode flips got staged) polluted 8 patches with permission-only changes; re-grading the cleaned
+patches ([`clean_patches.py`](swebench/clean_patches.py)) gave the same 36/50, and extraction is now fixed.
 
 ## Docs
 
