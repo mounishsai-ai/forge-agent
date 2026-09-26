@@ -379,7 +379,7 @@ def main() -> None:
     args = p.parse_args()
 
     if not args.project:
-        sys.exit("Set FORGE_PROJECT (e.g. export FORGE_PROJECT=divyastra-agent-37057) or pass --project.")
+        sys.exit("Set FORGE_PROJECT (e.g. export FORGE_PROJECT=<your-gcp-project-id>) or pass --project.")
     if not args.skip_prepare:
         say(f"Preparing Forge runtime in {args.runtime} from {args.forge_src}")
         prepare_runtime(args.forge_src, args.runtime)

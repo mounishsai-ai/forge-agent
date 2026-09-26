@@ -56,7 +56,7 @@ sudo mkdir -p /opt/forge-rt
 sudo chown "$USER:$USER" /opt/forge-rt
 
 echo "== project id for Forge"
-grep -q FORGE_PROJECT "$HOME/.bashrc" || echo 'export FORGE_PROJECT=divyastra-agent-37057' >> "$HOME/.bashrc"
+grep -q FORGE_PROJECT "$HOME/.bashrc" || echo "export FORGE_PROJECT=${FORGE_PROJECT:?pass FORGE_PROJECT=<id> bash vm_bootstrap.sh}" >> "$HOME/.bashrc"
 
 echo
 echo "Done. Now: exit, ssh back in (for docker group), then optionally 'docker login' (free Docker Hub"

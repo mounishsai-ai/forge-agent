@@ -68,7 +68,7 @@ your PC ──setup_vm.sh──> GCE VM (n2-standard-8, Docker)
 
 ## Machine size (read-only quota check, 2026-09-26)
 
-`gcloud compute regions describe us-central1` / `project-info describe` on `divyastra-agent-37057`:
+`gcloud compute regions describe us-central1` / `project-info describe` on the author's free-trial project:
 
 | Quota | Limit | Consequence |
 |---|---|---|

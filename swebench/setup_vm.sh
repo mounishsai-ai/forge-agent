@@ -12,7 +12,7 @@
 #   bash swebench/setup_vm.sh delete     # TEARDOWN: delete VM + disk (stops all billing)
 #
 # Machine sizing (quotas read 2026-09-26 with `gcloud compute regions describe us-central1`
-# and `gcloud compute project-info describe`, project divyastra-agent-37057, free trial):
+# and `gcloud compute project-info describe`, on a free-trial project):
 #   CPUS_ALL_REGIONS = 12   <- the limit that matters: at most 12 vCPUs across the whole project
 #   N2_CPUS (us-central1) = 32, E2_CPUS = 8, C3_CPUS = 8, N2D_CPUS = 8, C2_CPUS = 0
 #   SSD_TOTAL_GB (us-central1) = 250  <- pd-balanced counts as SSD, so a 250 GB disk uses ALL of it
@@ -21,16 +21,16 @@
 # => n2-standard-8 (8 vCPU, 32 GB RAM). n2-standard-16 would exceed the 12-vCPU global limit.
 #    SWE-bench recommends >= 8 cores, >= 16 GB RAM, >= 120 GB free disk for local Docker evaluation.
 # Approx. price (us-central1, on-demand, check the pricing page): n2-standard-8 ~ $0.39/h,
-# 250 GB pd-balanced ~ $25/month (~ $0.035/h). Paid from the free-trial credits.
+# 250 GB pd-balanced ~ $25/month (~ $0.035/h). 
 set -euo pipefail
 
-PROJECT="divyastra-agent-37057"
+PROJECT="${FORGE_PROJECT:?export FORGE_PROJECT=<your-gcp-project-id> first}"
 ZONE="us-central1-a"
 VM="forge-swebench"
 MACHINE="n2-standard-8"
 DISK_GB=250
 # Default compute service account of the project (read with `gcloud compute project-info describe`).
-VM_SA="65127856755-compute@developer.gserviceaccount.com"
+VM_SA="$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"   # the Forge repo root on your machine
 
 cmd="${1:-help}"
