@@ -278,7 +278,7 @@ def run_instance(row: dict, args, out: str) -> dict:
 
         # 4. patch
         log.write("----- patch -----")
-        p = dexec(f"git -C /testbed add -A && git -C /testbed -c core.fileMode=false diff --cached {row['base_commit']}",
+        p = dexec(f"git -C /testbed -c core.fileMode=false add -A && git -C /testbed -c core.fileMode=false diff --cached {row['base_commit']}",
                   timeout=300, max_log=100_000)
         patch = p.stdout or ""
         if patch and not patch.endswith("\n"):
