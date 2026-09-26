@@ -158,9 +158,13 @@ skills. Drop it in `.forge/skills/<name>/` (project) or `~/.forge/skills/<name>/
 ```
 
 Only `name` + `description` are preloaded into the system prompt on every turn — that's
-**progressive disclosure**: the model gets a cheap, always-visible menu, and only pays the token
-cost of a skill's full body when the `skill` tool actually loads it, on demand, for the one skill
-that matches the current task. A project with zero skills installed pays nothing extra at all.
+**progressive disclosure**: the always-on cost is one short line per *installed* skill (plus a
+small, constant cost that exists whether or not any skill is installed: one sentence in the base
+prompt and the `skill` tool's own schema), and the model only pays the much larger token cost of
+a skill's full body when the `skill` tool actually loads it, on demand, for the one skill that
+matches the current task. A project with zero skills installed pays that same small constant
+cost and nothing more — not literally zero, but flat regardless of how many skills anyone else's
+project has installed.
 
 Two ready-made examples ship in [`examples/skills/`](examples/skills/): `write-tests` (pytest
 conventions) and `git-commit` (commit message style). Try one:

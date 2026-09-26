@@ -366,19 +366,21 @@ skill — the identical convention `prompts.load_memory` already uses (user firs
 
 **Progressive disclosure** is the actual design point: `render_skill_index()` — what
 `build_system_prompt` appends — emits only `name: description` per skill, one line each, and
-returns `""` when nothing is installed, so a project using zero skills pays zero extra prompt
-tokens for the feature. The full instructions only get read, on demand, by `load_skill(name)`
-(called from `forge/tools/skill.py`, the `skill` tool) once the model has already decided a task
-matches one. Putting every skill's entire body into the system prompt up front — the naive
-alternative — would make prompt size scale with skills *installed*, not skills *used*, which
-defeats the purpose of having more than one.
+returns `""` when nothing is installed. That is not literally zero extra cost: `BASE` always has
+one fixed sentence telling the model to call `skill(name)`, and the `skill` tool's own schema is
+always in `ALL_TOOLS` — a small, *constant* cost that exists whether or not any skill is
+installed. What actually scales to zero with the feature unused is the index itself (one line per
+*installed* skill) and, far more importantly, every skill's full body — that only gets read, on
+demand, by `load_skill(name)` (called from `forge/tools/skill.py`, the `skill` tool) once the
+model has already decided a task matches one. Putting every skill's entire body into the system
+prompt up front — the naive alternative — would make prompt size scale with skills *installed*,
+not skills *used*, which defeats the purpose of having more than one.
 
-**Read-before-edit was already solved; skills reuse it, they don't reinvent it.** A skill's
-folder can hold sibling files (reference scripts, examples) beyond `SKILL.md`; `load_skill`
-returns their **absolute** paths (not bare filenames — `tools/base.resolve` resolves a relative
-path against `os.getcwd()`, not the skill's own folder, and `.forge` is in `IGNORED_DIRS` so
-`glob`/`grep` can't find them either), so the model can `read_file` them directly with the path
-it was given.
+**Sibling files are listed by absolute path.** A skill's folder can hold sibling files (reference
+scripts, examples) beyond `SKILL.md`; `load_skill` returns their **absolute** paths (not bare
+filenames — `tools/base.resolve` resolves a relative path against `os.getcwd()`, not the skill's
+own folder, and `.forge` is in `IGNORED_DIRS` so `glob`/`grep` can't find them either), so the
+model can `read_file` them directly with the path it was given.
 
 **Custom commands** (`.forge/commands/<name>.md`) follow the exact same discover-then-override
 pattern (`discover_commands()`), and `render_command(path, args)` does one `str.replace("$ARGUMENTS",
@@ -394,11 +396,14 @@ on the first line, so `lines[0].strip() != "---"` and the frontmatter parser sil
 frontmatter at all.
 
 **Known limitations:** only files at the top level of a skill folder are listed (no recursive
-walk); the skill index is computed once when `build_system_prompt()` runs at agent construction,
-so installing a new skill mid-session needs a restart (or `/clear`, which rebuilds nothing — only
-`main.py`/`build_agent` calls `build_system_prompt()`) to appear; and `render_command`'s
-`$ARGUMENTS` substitution has no escaping, so a command file that happens to contain that literal
-string for an unrelated reason would also get replaced.
+walk); the skill *index* is computed once, when `cli.build_agent` calls `build_system_prompt()`
+at agent construction, so a skill installed after that won't appear in the index until the
+process restarts (`/clear` only wipes conversation history — it never rebuilds the system
+prompt). `load_skill(name)` itself, however, re-scans disk on every call, so the `skill` tool can
+still load a brand-new skill mid-session if the model is told its exact name some other way (e.g.
+in a memory file or the user's own message) — it's only the always-visible index that's frozen.
+`render_command`'s `$ARGUMENTS` substitution has no escaping, so a command file that happens to
+contain that literal string for an unrelated reason would also get replaced.
 
 ### `forge/pricing.py` — cost estimate
 `cost(model, usage)` looks up a flat per-million-token input/output rate in `PRICES` and returns

@@ -139,13 +139,16 @@ token cost of information the model might need until it actually needs it; show 
 first, and let it ask for the full thing on demand. Forge's skills feature (`forge/skills.py`,
 `forge/tools/skill.py`) is the concrete example: `render_skill_index()` puts only `name:
 description` for every installed skill into the system prompt — one line each — and that function
-returns `""` outright when nothing is installed, so a project with zero skills pays zero extra
-prompt tokens. The full `SKILL.md` body (which can be arbitrarily long — conventions, examples,
-reference snippets) is only read from disk when the model calls the `skill` tool with a specific
-name, which it's told to do in the system prompt when a task matches one of the listed
-descriptions. The naive alternative — concatenating every skill's full body into the system prompt
-at startup — would make the prompt grow with the number of skills *installed*, not the number
-actually *used* on a given task, which is exactly backwards for a feature meant to scale.
+returns `""` outright when nothing is installed. I'd be precise here, not oversell it: it isn't
+literally zero cost even then — `BASE` always has one fixed sentence telling the model to call
+`skill(name)`, and the `skill` tool's schema is always registered — but that's a small, *constant*
+cost, not one that grows with anything. What actually scales to zero is the index (one line per
+*installed* skill) and, more importantly, the full `SKILL.md` body of each one (which can be
+arbitrarily long — conventions, examples, reference snippets): that's only read from disk when the
+model calls the `skill` tool with a specific name, once it's decided a task matches one of the
+listed descriptions. The naive alternative — concatenating every skill's full body into the system
+prompt at startup — would make the prompt grow with the number of skills *installed*, not the
+number actually *used* on a given task, which is exactly backwards for a feature meant to scale.
 
 **Q: How are skills different from project memory files (`FORGE.md`/`AGENTS.md`), and from the sub-agent?**
 A: All three are ways of getting more instructions or capability into the model's hands without
