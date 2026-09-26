@@ -74,6 +74,8 @@ def load_all_runs() -> list[dict]:
         if os.path.basename(path) in skip_names:
             continue
         model = data.get("model", "unknown")
+        if data.get("label"):   # ablation runs, e.g. "gemini-3.7-flash [bash-only]"
+            model = f"{model} [{data['label']}]"
         for r in data.get("results", []):
             if r.get("id") not in task_ids:
                 continue

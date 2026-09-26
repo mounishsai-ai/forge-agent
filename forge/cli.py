@@ -55,6 +55,10 @@ def build_agent(args, ui) -> Agent:
     if getattr(args, "plan", False):
         exit_plan.enter_plan_mode(agent)
     mcp_client.attach(agent)   # tools from .forge/mcp.json servers (mcp__<server>__<tool>)
+    if getattr(args, "tools", None):
+        # Restrict the toolset (used for ablation studies, e.g. --tools run_shell = "bash-only agent").
+        keep = {t.strip() for t in args.tools.split(",") if t.strip()}
+        agent.tools = {name: t for name, t in agent.tools.items() if name in keep}
     return agent
 
 
@@ -69,6 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true", help="with -p: print a JSON result (for scripts/evals)")
     p.add_argument("--verbose", action="store_true", help="with -p: show tool calls")
     p.add_argument("--no-subagents", action="store_true")
+    p.add_argument("--tools", help="comma-separated tool names to keep (others are removed), e.g. run_shell")
     p.add_argument("--no-fallback", action="store_true", help="never switch models (for reproducible evals)")
     p.add_argument("--plan", action="store_true",
                     help="start in plan mode: read-only until the model's plan is approved (see /plan)")

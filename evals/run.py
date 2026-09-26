@@ -33,6 +33,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 TASKS_DIR = os.path.join(HERE, "tasks")
 RESULTS_DIR = os.path.join(HERE, "results")
 EVAL_MODEL = "gemini-3.7-flash"
+# Ablations: extra flags passed to every forge run (e.g. ["--tools", "run_shell"]) and a label for the results.
+EXTRA_FORGE_ARGS: list[str] = []
+LABEL: str | None = None
 TASK_TIMEOUT = 900   # seconds per agent run
 
 # Extra attempts for an infra_error, in seconds, indexed by retry number
@@ -99,7 +102,7 @@ def run_one(task: dict, model: str, attempt: int, keep: bool) -> dict:
     try:
         agent = subprocess.run(
             [sys.executable, "-m", "forge", "-p", task["prompt"], "--yes", "--json",
-             "--model", model, "--no-fallback", "--max-turns", "40"],
+             "--model", model, "--no-fallback", "--max-turns", "40", *EXTRA_FORGE_ARGS],
             cwd=workdir, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TASK_TIMEOUT)
         last_line = (agent.stdout.strip().splitlines() or ["{}"])[-1]
         try:
@@ -248,6 +251,9 @@ def _write_results(results: list[dict], model: str, resumed_from: str | None = N
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     json_path = os.path.join(RESULTS_DIR, f"{stamp}.json")
     payload = {"model": model, "results": results}
+    if LABEL:
+        payload["label"] = LABEL
+        payload["forge_args"] = EXTRA_FORGE_ARGS
     if resumed_from:
         # lets aggregate.py skip the file(s) this one supersedes, so rows aren't double
         # counted (the merged file repeats every non-infra_error row from the original).
@@ -280,9 +286,14 @@ def main():
     p.add_argument("--infra-retries", type=int, default=2,
                     help="extra attempts for a run classified as infra_error (backoff: %s)"
                          % ", ".join(f"{s}s" for s in INFRA_BACKOFF_SECONDS))
+    p.add_argument("--label", help="name for an ablation variant, shown next to the model in RESULTS.md")
+    p.add_argument("--forge-args", default="", help='extra forge flags for every run, e.g. "--tools run_shell"')
     p.add_argument("--resume", metavar="RESULTS_JSON",
                     help="re-run only the infra_error rows of a previous results file and write a merged file")
     args = p.parse_args()
+    global LABEL
+    LABEL = args.label
+    EXTRA_FORGE_ARGS[:] = args.forge_args.split()
 
     if args.resume:
         with open(args.resume, encoding="utf-8") as f:
