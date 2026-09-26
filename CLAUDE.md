@@ -17,9 +17,11 @@ Forge is a Claude-Code-style AI coding agent harness built from scratch in Pytho
 3. [x] Memory (FORGE.md/AGENTS.md into system prompt) + sessions (.forge/sessions JSON, --resume)
 4. [x] Context mgmt: tool-output truncation, token tracking, auto-compaction (checked every turn), /compact
 5. [x] Extras: slash commands, `task` sub-agent, `todo` tool, hooks, headless `-p --json`, loop detection, read-before-edit guard
-6. [ ] Eval suite (`evals/`): small coding tasks w/ checker scripts, run headless, report pass rate/tokens/cost
-7. [ ] SWE-bench Verified subset on a GCE VM (Docker)
-8. [ ] Docs (ARCHITECTURE, INTERVIEW), README, push to GitHub
+6. [x] Eval suite (`evals/`): 14 tasks + 12 hard tasks, `python evals/run.py` (first 7: 7/7 on 3.7-flash, $0.43)
+7. [ ] SWE-bench Verified subset on a GCE VM (Docker) — scripts in swebench/, VM must be created by the user
+8. [x] Docs (ARCHITECTURE, INTERVIEW, README); [ ] push to GitHub
+9. [x] Offline test suite (tests/, ~190 tests, FakeLLM) + GitHub Actions CI (ubuntu+windows)
+10. [x] Streaming (REPL), parallel read-only tool calls, MCP client (forge/mcp_client.py), skills + custom commands
 
 ## Gemini facts (verified 2026-09-26)
 - gemini-3.8-flash is on Dynamic Shared Quota and was overloaded (504 on every call).
