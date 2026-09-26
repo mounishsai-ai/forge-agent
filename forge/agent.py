@@ -94,6 +94,11 @@ class Agent:
             self._repair_history()
             self.ui.error("Interrupted.")
             return "(interrupted)"
+        except Exception:
+            # e.g. the API failed after all retries. Leave the history valid (no unanswered
+            # tool calls) so the user's NEXT message still works, then let the caller report it.
+            self._repair_history()
+            raise
 
     def _ask_model(self):
         """One model call. Returns (response, whether its text was already shown live).
