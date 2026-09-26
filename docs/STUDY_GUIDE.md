@@ -851,11 +851,9 @@ def enter_plan_mode(self) -> None:
 - **`docs/INTERVIEW.md`** — a Q&A rehearsal format covering the same ground from an interviewer's
   angle, plus security/comparison questions this guide doesn't cover.
 
-**One honest caveat about those two docs, found while researching this guide:** both were written
-against an earlier snapshot of the codebase and have since drifted in a few places — e.g. they
-describe `gemini-3.5-flash` as unpriced (it's now in `pricing.PRICES`), describe `evals/` as a
-placeholder (it now has 26 tasks), state that a 504 always falls back to the next model (it now
-only does that when a fallback is actually configured — `has_fallback`), and neither mentions
-`checkpoints.py`, `web_fetch.py`, or plan mode, all of which now exist. Treat the *code* as the
-source of truth over either doc's specific claims when the two disagree; both remain excellent for
-the architectural reasoning that doesn't change turn to turn.
+**One honest note about those two docs:** an earlier version of this guide flagged a round of drift
+in them (stale pricing coverage, `evals/` described as a placeholder, an imprecise 504-fallback
+claim) — that round has since been fixed in both files as of this pass. Docs can still drift again
+as the code keeps moving faster than they do; if a specific claim in either one ever looks off
+against the code you're reading, trust the code and treat the mismatch as worth fixing, the same
+way the previous round was.

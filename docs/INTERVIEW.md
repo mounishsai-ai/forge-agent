@@ -111,11 +111,15 @@ unlocks it for the parent, and `/clear` doesn't reset it.
 **Q: What happens when the API rate-limits you or a model is overloaded?**
 A: `GeminiLLM._call_with_retry` in `llm.py`. Retryable HTTP codes (`429, 500, 502, 503, 504`) get up to
 2 attempts per model with exponential backoff plus random jitter (`min(2**attempt, 30) + random.random()`).
-A 504 or an `httpx` timeout skips straight to the next model instead of retrying, since the full
-timeout was already spent waiting. If a model exhausts its attempts, it's marked "broken" for
-`BREAKER_SECONDS` (600s) — the circuit breaker — so subsequent turns skip straight past it to a
-fallback instead of paying that timeout again on every single call. Non-retryable errors (like a 400)
-raise immediately.
+A 504 or an `httpx` timeout skips straight to the next model **when one is actually configured**
+(`has_fallback`), since the full timeout was already spent waiting and there's no point repeating that
+on the same model; with no fallback available (e.g. `--no-fallback`) it instead retries the same model
+more patiently. Separately, plain network failures — `httpx.TransportError`, a `google.auth`
+`TransportError` from a failed token refresh, or a bare `OSError` (Wi-Fi drop, DNS failure) — are always
+retried on the same model with backoff, since those aren't the model's fault at all. If a model exhausts
+its attempts, it's marked "broken" for `BREAKER_SECONDS` (600s) — the circuit breaker — so subsequent
+turns skip straight past it to a fallback instead of paying that timeout again on every single call.
+Non-retryable errors (like a 400) raise immediately.
 
 **Q: What's a circuit breaker and why did you need one?**
 A: A pattern where, after something fails, you stop calling it for a while instead of retrying every
@@ -249,15 +253,25 @@ tool calls that never got a response, it appends a `function_response` for each 
 rejects a history with an unanswered `function_call`, so this keeps the next request valid. Calls that
 had already finished get their **real** result (tracked in `self._finished` as they complete); only the
 unfinished ones get `"Cancelled by user."`, so the model never believes a file write that really
-happened was cancelled.
+happened was cancelled. The same repair also runs for any *other* exception that escapes the loop
+(e.g. the API failing after every retry/fallback attempt) — `Agent.run` calls `_repair_history` there
+too, then re-raises the original error, so history stays valid for the next message either way.
 
 **Q: How would you evaluate whether this agent is actually good?**
-A: The plan (see `evals/`, currently a placeholder) is a small suite of coding tasks, each with a
-checker script that verifies the result, run headlessly via `forge -p --json` (which reports tool call
-count, token usage, cost, and which model actually answered) and `--no-fallback` for reproducibility
-across runs. I'd report pass rate, tokens, and cost per task. I'd also want to benchmark against a
-standard like SWE-bench eventually, but I don't have numbers to share yet — that's explicitly future
-work, not something I'd claim is done.
+A: `evals/` is a real suite now: 26 self-contained coding tasks (bugfixes, small features, and a
+"hard" set — multi-file refactors, concurrency, parsers, flaky tests), each with a checker script the
+agent never sees. `evals/run.py` copies a task's starter repo into a fresh temp dir, runs it headlessly
+via `forge -p --json --no-fallback` (which reports tool-call count, token usage, cost, and which model
+actually answered), and grades it with the checker. Because real runs over a network hit transient
+failures that say nothing about the agent's coding ability, `run.py` classifies every run as
+`pass`/`fail`/`infra_error` and auto-retries the `infra_error` ones with backoff, so a bad afternoon of
+Vertex 504s doesn't get counted as a regression. `evals/aggregate.py` pools every results file into
+`evals/RESULTS.md` — a per-model comparison table plus a per-task pass-fraction matrix, flagging any
+model with too few valid runs as insufficient data rather than trusting a noisy number. I'd point at
+`evals/RESULTS.md` for the current numbers rather than quote a figure here, since it's still being
+filled in as more runs land. I'd also want to benchmark against SWE-bench Verified eventually — the
+scripts for a pilot exist under `swebench/`, but the VM to actually run it hasn't been created yet, so
+there are no SWE-bench numbers to share.
 
 **Q: How does `/undo` work, and what can't it undo?**
 A: `forge/checkpoints.py`. Right before `write_file`/`edit_file` change a file, they snapshot its old
@@ -388,9 +402,11 @@ coupling today).
 A: A small dataclass in `llm.py` accumulating `input_tokens`, `output_tokens`, `thinking_tokens`,
 `cached_tokens`, and `cost_usd`, added up call-by-call on `agent.usage` and shown via `/cost` or the
 `--json` output. `pricing.cost(model, usage)` prices each call using the model that actually answered
-(important once fallback changes which model that is mid-session); `pricing.PRICES` today has real
-numbers for `gemini-3.8-flash` and its first fallback `gemini-3.7-flash`, so only a turn answered by the
-second fallback (`gemini-3.5-flash`) or a manually chosen model reports `$0`.
+(important once fallback changes which model that is mid-session); `pricing.PRICES` today covers the
+whole default fallback chain (`gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.5-flash`) plus
+`gemini-3.1-pro-preview` and `gemini-2.5-flash` — though only the first two are confirmed against
+Google's own pricing page, the rest are marked as sourced from third-party trackers — so only a turn
+answered by some other model chosen manually via `/model` reports `$0`.
 
 **Q: Why does `ConsoleUI`/`QuietUI` matter as a design choice?**
 A: It keeps `Agent` free of any I/O decisions — it calls `self.ui.thinking()`, `self.ui.tool_call()`,

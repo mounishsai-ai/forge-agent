@@ -65,23 +65,24 @@ in `subagent.py` builds a second, differently-configured `Agent` the exact same 
                               cli.py (argparse, build_agent, repl / run_headless)
                                    |
         builds and injects:       |
-   -------------------------------+-----------------------------------------
-   |         |          |          |         |          |         |
-   v         v          v          v         v          v         v
- llm.py  permissions  hooks.py  prompts.py  ui.py     session.py  subagent.py
- (Gemini)  .py                 (system                (save/load   (task tool:
-   |                            prompt)     Console/    JSON w/     builds a
-   v                                        QuietUI)    thought      2nd Agent)
- pricing.py                                             signatures)
- (cost per                        |
-  model)                          v
+   -------------------------------+-------------------------------------------------------------
+   |         |          |          |         |          |         |          |          |
+   v         v          v          v         v          v         v          v          v
+ llm.py  permissions  hooks.py  prompts.py  ui.py     session.py  subagent.py checkpoints  mcp_client.py
+ (Gemini)  .py                 (system                (save/load   (task tool:  .py        (stdio MCP
+   |                            prompt)     Console/    JSON w/     builds a   (/undo       servers ->
+   v                                        QuietUI)    thought      2nd Agent) snapshots,   mcp__<srv>__
+ pricing.py                                             signatures)             cli.repl     <tool> Tools,
+ (cost per                        |                                             calls         via add_tools)
+  model)                          v                                             begin_turn)
                               forge/agent.py  <--- the loop itself
                                    |
                                    v
                               forge/tools/*  (registered in tools/__init__.py)
                               base.py (Tool, ToolError, resolve, truncate, files_read)
                               read_file / list_dir / glob / grep / skill   (read-only)
-                              write_file / edit_file / run_shell / todo  (needs_permission)
+                              write_file / edit_file / run_shell / todo / web_fetch / exit_plan
+                              (needs_permission, except exit_plan which has its own approval flow)
 
                               context.py (compaction) is called directly by agent.py and cli.py,
                               not by the tools.
@@ -90,19 +91,26 @@ in `subagent.py` builds a second, differently-configured `Agent` the exact same 
  prompts.py (system-prompt skill index), tools/skill.py (the skill tool's full-body load),
  and cli.py (custom slash-command dispatch) -- three different callers of the same discovery
  code, which is the whole reason it is its own module instead of living inside any one of them.
+
+ config.py (env-var settings) has no arrows of its own above: it's imported directly by nearly
+ every module shown (llm.py, agent.py, permissions.py, most of tools/, ...), not injected by cli.py.
+ forge/__init__.py just holds __version__; forge/__main__.py is the `python -m forge` entry point
+ that calls cli.main() -- both are one-liners, omitted from the diagram for the same reason.
 ```
 
 ## Module-by-module
 
 ### `forge/config.py` — settings
-All tunables in one file. Five are read from environment variables at import time:
+All tunables in one file. Six are read from environment variables at import time:
 `FORGE_PROJECT` / `GOOGLE_CLOUD_PROJECT` (`PROJECT`, no hardcoded default — the agent refuses to run
 without one), `FORGE_LOCATION` (`LOCATION`, default `"global"`), `FORGE_MODEL` (`MODEL`, default
-`gemini-3.8-flash`), `FORGE_MAX_TURNS` (`MAX_TURNS`, default 50) and `FORGE_COMPACT_AT`
-(`COMPACT_AT_TOKENS`, default 150,000). The rest are constants you edit in the file, not env vars:
-`FALLBACK_MODELS`, `REQUEST_TIMEOUT` (60s), `TOOL_OUTPUT_LIMIT` (20,000 **characters**, not tokens),
-`SHELL_TIMEOUT` (120s), `MEMORY_FILES`. **Why:** one place to tune behavior without hunting through
-the codebase, and no secret or project ID baked into source that would leak if the repo is public.
+`gemini-3.8-flash`), `FORGE_MAX_TURNS` (`MAX_TURNS`, default 50), `FORGE_COMPACT_AT`
+(`COMPACT_AT_TOKENS`, default 150,000), and `FORGE_SHELL_INIT` (`SHELL_INIT`, default `""` — prepended
+to every `run_shell` command, e.g. to activate a venv before each call). The rest are constants you
+edit in the file, not env vars: `FALLBACK_MODELS`, `REQUEST_TIMEOUT` (60s), `TOOL_OUTPUT_LIMIT`
+(20,000 **characters**, not tokens), `SHELL_TIMEOUT` (120s), `MEMORY_FILES`. **Why:** one place to
+tune behavior without hunting through the codebase, and no secret or project ID baked into source
+that would leak if the repo is public.
 
 ### `forge/llm.py` — the only file that talks to the model
 `GeminiLLM.generate(history, tools, system)` is the entire interface the rest of the app relies on:
@@ -113,11 +121,17 @@ give it the conversation so far, get back a provider-neutral `LLMResponse` (`tex
   failed is skipped for `BREAKER_SECONDS` = 600s, so a dead model doesn't cost a fresh timeout on every
   turn). For each healthy model it retries up to 2 attempts with exponential backoff + jitter
   (`min(2**attempt, 30) + random.random()`, so effectively ~1s then ~2s here since only 2 attempts run).
-  A 504 or an `httpx.TimeoutException` skips straight to the next model (no point retrying a deadline
-  that already used the full timeout); any other non-retryable `APIError` code (e.g. 400) raises
-  immediately; codes in `RETRYABLE = {429, 500, 502, 503, 504}` get the retry+fallback treatment.
-  `--no-fallback` passes `fallbacks=[]`, so only `self.model` is ever tried — useful for reproducible
-  evals where you don't want a silent model swap.
+  A 504 or an `httpx.TimeoutException` skips straight to the next model **only when a fallback is
+  actually configured** (`has_fallback`) — no point retrying a deadline that already used the full
+  timeout when there's somewhere else to go; with no fallback available (e.g. `--no-fallback`) it
+  instead becomes more patient (`attempts_per_model` raised to at least 6) and retries the same model
+  with backoff, since there is nowhere else to send the request. Separately, `NETWORK_ERRORS`
+  (`httpx.TransportError`, `google.auth.exceptions.TransportError`, `OSError` — Wi-Fi drops, DNS
+  failures, a connection reset, an access-token refresh failing offline) are always retried on the
+  *same* model with backoff, since they aren't the model's fault at all. Any other non-retryable
+  `APIError` code (e.g. 400) raises immediately; codes in `RETRYABLE = {429, 500, 502, 503, 504}` get
+  the retry+fallback treatment. `--no-fallback` passes `fallbacks=[]`, so only `self.model` is ever
+  tried — useful for reproducible evals where you don't want a silent model swap.
 - **Streaming** (`generate_stream(history, tools, system, on_text)`): used by the interactive REPL.
   It calls `client.models.generate_content_stream` and passes each visible (non-thought) text chunk to
   `on_text` as it arrives, so the user watches the answer being written. Chunks are then glued back into
@@ -142,11 +156,14 @@ give it the conversation so far, get back a provider-neutral `LLMResponse` (`tex
 - **`GeminiLLM.__init__` refuses to start without a project:** if `config.PROJECT` is empty (neither
   `FORGE_PROJECT` nor `GOOGLE_CLOUD_PROJECT` set), the constructor raises `SystemExit` immediately with
   a message telling the user which env var to set, rather than failing later with an opaque API error.
-- **Limitation:** `pricing.PRICES` currently prices `gemini-3.8-flash` and `gemini-3.7-flash` (the first
-  fallback), but not `gemini-3.5-flash` (the second fallback) or any other model. A turn answered by an
-  unpriced model reports `cost_usd = 0` for that turn — `/cost` and the `--json` `cost_usd` field
-  under-count whenever fallback has gone past the first fallback model. Cached tokens also aren't
-  discounted in the cost formula.
+- **Pricing coverage:** `pricing.PRICES` now covers all three models in the default fallback chain
+  (`gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.5-flash`) plus `gemini-3.1-pro-preview` and
+  `gemini-2.5-flash`. Only `gemini-3.8-flash`/`gemini-3.7-flash` are confirmed against Google's own
+  pricing page (an introductory rate through 2026-12-31); the other three are marked in `pricing.py`
+  as sourced from third-party price trackers, not yet confirmed on Google's page — treat their cost
+  columns as estimates. Any model set manually via `/model` that isn't in `PRICES` still reports
+  `cost_usd = 0` for that turn (`/cost` and the `--json` `cost_usd` field under-count in that case).
+  Cached tokens also aren't discounted in the cost formula.
 
 ### `forge/agent.py` — the loop
 `Agent.run(user_text)` is described in the diagram above. More details worth naming:
@@ -166,13 +183,16 @@ give it the conversation so far, get back a provider-neutral `LLMResponse` (`tex
 - **Loop detection** (`recent_calls`): if the exact same tool name + JSON-serialized args repeats 3
   times in a row, a `[harness]` text part is appended telling the model to stop and try something
   else. This does **not** stop the loop — it's a nudge inside the next prompt, not a hard break.
-- **Ctrl+C history repair** (`_repair_history`): if the user interrupts mid-turn, the last message in
-  `history` may be a model turn that requested tool calls with no results yet. The Gemini API rejects a
-  history where a `function_call` has no matching `function_response`, so `_repair_history` appends a
-  response for every call: the **real result** for calls that had already finished (tracked as they
-  complete in `self._finished`, including parallel calls that finished in the background), and
-  `"Cancelled by user."` only for calls that never completed. Otherwise the model would think a file
-  write that really happened was cancelled.
+- **History repair on any failed turn, not just Ctrl+C** (`_repair_history`): `Agent.run`'s `try` block
+  catches both `KeyboardInterrupt` and, separately, a bare `Exception` (e.g. the API call failing after
+  every retry/fallback attempt has been exhausted). Either way, if the last message in `history` is a
+  model turn that requested tool calls with no results yet, the Gemini API would reject the *next*
+  request (a `function_call` with no matching `function_response`), so `_repair_history` appends a
+  response for every pending call: the **real result** for calls that had already finished (tracked as
+  they complete in `self._finished`, including parallel calls that finished in the background), and
+  `"Cancelled by user."` only for calls that never completed. `run` then reports `"(interrupted)"` for
+  `KeyboardInterrupt`, or re-raises the original exception for any other error — either way, history is
+  left valid so the user's *next* message still works instead of every future call failing too.
 - **`_execute`** never lets a tool crash the agent: `ToolError` (expected failures like "file not
   found") and bare `TypeError` (model passed bad arguments) are caught explicitly, and any other
   `Exception` is caught as a last resort — every failure becomes text the model reads back, not a
@@ -245,11 +265,17 @@ after the permission check and can **veto** a call by exiting non-zero (its stdo
 denial reason shown to the model). `post_tool` runs after the tool executes and just logs to
 `Hooks.log` (in memory only, not persisted or included in `--json` output) — its own exit code and
 output are not otherwise used. Matching is `re.fullmatch(hook["match"], tool_name)`, so a hook can
-target one tool or a regex over several (e.g. `"edit_file|write_file"`). **Hooks run via
-`subprocess.run(..., shell=True)`**, which on Windows means **cmd.exe**, not PowerShell, even though
-`run_shell` itself uses PowerShell — a hook command written in PowerShell syntax won't work unmodified.
-**Why:** this gives a user their own enforcement point (auto-formatting, linting, audit logging)
-without touching Forge's own code, mirroring how real coding-agent harnesses expose hook points.
+target one tool or a regex over several (e.g. `"edit_file|write_file"`). **Hooks fail closed, but only
+on the blocking side:** a broken `pre_tool` hook (bad regex, a missing config key, the hook process
+itself crashing) is caught and treated as a **veto** — the call is blocked and the exception text is
+shown to the model as the reason, since a pre-tool hook might be a safety check the user is relying on.
+A broken `post_tool` hook, by contrast, is caught and silently ignored: the tool has already run by
+then, so there's nothing left to block, and a logging/formatting hook's own failure shouldn't crash the
+agent. **Hooks run via `subprocess.run(..., shell=True)`**, which on Windows means **cmd.exe**, not
+PowerShell, even though `run_shell` itself uses PowerShell — a hook command written in PowerShell
+syntax won't work unmodified. **Why:** this gives a user their own enforcement point (auto-formatting,
+linting, audit logging) without touching Forge's own code, mirroring how real coding-agent harnesses
+expose hook points.
 
 ### `forge/context.py` — context window management
 `maybe_compact` is called at the top of **every iteration** of the turn loop in `Agent.run` (i.e.
@@ -257,11 +283,22 @@ before each call to `llm.generate`, not just once per user message), and compare
 `agent.last_prompt_tokens` (the input-token count from the *previous* API call) against
 `COMPACT_AT_TOKENS`. `compact` asks the model itself to summarize the whole history using
 `SUMMARY_PROMPT`, then replaces `agent.history` with two messages: the summary text and a short
-model acknowledgment. **Why check before every model call instead of only once per user message:** a
-single user request can trigger many tool-call round trips, and checking on every iteration catches
-growth from tool output within that same turn, not just growth carried over from a previous one. It's
-still a step behind in the sense that `last_prompt_tokens` reflects the *previous* call's size, not the
-one about to be sent — so the check can only ever trigger one call late.
+model acknowledgment. Two edge cases it handles explicitly: if the last message is a **model** turn
+with tool calls that never got a result (e.g. compaction is triggered right after a model turn, before
+those calls ran), `compact` answers each one with a placeholder `{"error": "Not run."}` response before
+asking for the summary — the API would otherwise reject a history with an unanswered `function_call`.
+And `maybe_compact` itself doesn't just call `compact` and move on: since this check runs at the *top*
+of a loop iteration, the last message in history is what the model is about to be asked to respond to
+next (the user's request, or the previous round's tool results) — after `compact` replaces history with
+the summary + acknowledgment, `maybe_compact` re-appends that pending message (verbatim if it's a plain
+user message; tool results can't be re-sent without the calls they answer, so those become a generic
+"Continue the task from where you left off" user message instead), so the model still has something to
+respond to and the conversation doesn't end on the harness's own "Got it" message. **Why check before
+every model call instead of only once per user message:** a single user request can trigger many
+tool-call round trips, and checking on every iteration catches growth from tool output within that same
+turn, not just growth carried over from a previous one. It's still a step behind in the sense that
+`last_prompt_tokens` reflects the *previous* call's size, not the one about to be sent — so the check
+can only ever trigger one call late.
 
 ### `forge/tools/base.py` — what a tool is
 `Tool` is a small dataclass: `name`, `description` (this is the **entire** signal the model uses to
@@ -299,10 +336,20 @@ place, because uniqueness is enforced before anything is written.
 ### `run_shell.py` — sandboxed by permission, not by process
 Runs `powershell -NoProfile -NonInteractive -Command <command>` on Windows (`bash -c` elsewhere).
 **Every call is a brand-new process** — `cd` or environment variables set in one call do not persist to
-the next. Output is `stdout` + an appended `[stderr]` block + `[exit code N]`, then truncated; a
-non-zero exit code is **not** turned into a tool failure — it's still returned as ordinary `output`
-text with the exit code visible, and it's the model's job to notice and react. `needs_permission=True`
-means it always goes through `Permissions.check` (blocklist + ask/auto/readonly).
+the next (`FORGE_SHELL_INIT`, if set, is prepended to every call specifically to work around this, e.g.
+to re-activate a venv each time). Output is `stdout` + an appended `[stderr]` block + `[exit code N]`,
+then truncated; a non-zero exit code is **not** turned into a tool failure — it's still returned as
+ordinary `output` text with the exit code visible, and it's the model's job to notice and react.
+`needs_permission=True` means it always goes through `Permissions.check` (blocklist + ask/auto/readonly).
+**On Windows**, the command is prefixed to force PowerShell's own output encoding to UTF-8 without a BOM
+(PowerShell 5.1 otherwise writes to its output pipe in the OEM/ANSI code page, so non-ASCII characters
+like `é` came back as `U+FFFD` after Forge's UTF-8 decode) and suffixed to translate `$LASTEXITCODE`
+into the process's real exit code (without it, PowerShell reports every failing program's exit code as
+a flat `1`). **On a timeout (or Ctrl+C), the whole process tree is killed, not just the direct child:**
+`run_process`/`_kill_tree` (shared with `hooks.py`'s hook runner) use `taskkill /T /F` on Windows because
+a plain `Popen.kill()` only kills the immediate child (`powershell.exe`) — a grandchild it spawned (e.g.
+a dev server started by the command) would keep running and keep the output pipes open, so
+`.communicate(timeout=...)` could otherwise hang forever waiting for pipes that never close.
 
 ### `forge/tools/web_fetch.py` — fetching the open web, with an SSRF guard
 `web_fetch(url, max_chars=20000)` is the only tool that makes network calls, via stdlib `urllib`
@@ -408,7 +455,10 @@ without any `if headless:` branching inside the loop itself.
 
 ### `forge/session.py` — save/resume
 One JSON file per session at `.forge/sessions/<timestamp>.json` in the **current working directory**,
-saved after every REPL turn and again on exit. `agent.model_dump(mode="json", exclude_none=True)` on
+saved after every REPL turn and again on exit. **Saves are atomic:** `save()` writes to a `<path>.tmp`
+file first, then `os.replace(tmp, path)` swaps it into place — a crash or Ctrl+C mid-write (a real
+possibility since this runs after every single turn) can leave a stray `.tmp` file, but never a
+half-written `.json` that would break a later `--resume`. `agent.model_dump(mode="json", exclude_none=True)` on
 each `types.Content` is what makes this work for Gemini's **thought signatures** — opaque binary parts
 attached to some model turns — because Pydantic's JSON mode base64-encodes bytes automatically; loading
 back with `types.Content.model_validate(c)` reverses that. **What is *not* saved:** token usage, the
@@ -416,7 +466,10 @@ todo list, `files_read`, and `always_allowed` tools — a resumed session starts
 `model` field is recorded in the file but never actually applied back onto `agent.llm.model` on load
 (the CLI's `--model`/default is what's used instead). **`--resume` only works in the interactive REPL**
 (`cli.repl`) — `run_headless` (`forge -p`) never calls `session.load` or `session.save`, so one-shot
-runs are not resumable.
+runs are not resumable. **A corrupt or hand-edited session file doesn't crash the REPL:** `cli.repl`
+catches `FileNotFoundError` (no such session) separately from any other exception while loading (a
+truncated or invalid JSON file, a schema Pydantic rejects) — the latter is reported to the user and
+the REPL starts a fresh, empty session instead of exiting.
 
 ### `forge/checkpoints.py` — file checkpoints and `/undo`
 Like Claude Code's checkpoints, with no git required. **What:** right *before* `write_file` or
@@ -517,10 +570,14 @@ contain that literal string for an unrelated reason would also get replaced.
 
 ### `forge/pricing.py` — cost estimate
 `cost(model, usage)` looks up a flat per-million-token input/output rate in `PRICES` and returns
-`None` if the model isn't listed, in which case `llm.py` treats it as `0.0`. `PRICES` currently has
-entries for `gemini-3.8-flash` and `gemini-3.7-flash` (both at the same introductory rate); the second
-fallback (`gemini-3.5-flash`) and any model set manually via `/model` are unpriced and cost `$0` in the
-report. Thinking tokens are billed at the output rate (`usage.output_tokens + usage.thinking_tokens`).
+`None` if the model isn't listed, in which case `llm.py` treats it as `0.0`. `PRICES` has entries for
+all three models in the default fallback chain (`gemini-3.8-flash`, `gemini-3.7-flash` at the same
+introductory rate, confirmed against Google's pricing page; `gemini-3.5-flash`) plus
+`gemini-3.1-pro-preview` and `gemini-2.5-flash` — those last three are commented in the file as coming
+from third-party price trackers (Sept 2026), not yet confirmed on Google's own pricing page, so
+`evals/aggregate.py` flags any comparison table row for them accordingly. A model set manually via
+`/model` that isn't in `PRICES` at all is unpriced and costs `$0` in the report. Thinking tokens are
+billed at the output rate (`usage.output_tokens + usage.thinking_tokens`).
 
 ## Lifecycle of one request
 
@@ -584,17 +641,23 @@ report. Thinking tokens are billed at the output rate (`usage.output_tokens + us
   model call in the loop (not just once per user message), but it compares `last_prompt_tokens` from
   the *previous* API call against `COMPACT_AT_TOKENS` — so it's always judging the size of the request
   that already went out, not the one about to be sent, and can trigger at most one call late.
-- **Cost tracking under-counts once the second fallback fires.** `pricing.PRICES` has real numbers for
-  `gemini-3.8-flash` and `gemini-3.7-flash`; a turn answered by `gemini-3.5-flash` (the second fallback)
-  or any other model set via `/model` reports `$0` for that turn.
+- **Cost tracking under-counts for models outside `pricing.PRICES`.** All three default fallback-chain
+  models are priced now (`gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.5-flash`), plus
+  `gemini-3.1-pro-preview` and `gemini-2.5-flash` — but the latter three are sourced from third-party
+  trackers, not Google's own pricing page, so treat those cost figures as estimates. Any other model
+  set via `/model` still reports `$0` for that turn.
 - **Global mutable state (`files_read`, `todo.current`)** is shared across the parent agent and any
   sub-agent in the same process, with the cross-contamination effects described above.
 - **No per-path sandbox in `tools/base.resolve`** — a tool can act on any path the OS user can reach,
   not just inside the project directory.
 - **Hooks run through `cmd.exe`-style `shell=True`** on Windows, not the PowerShell used for
   `run_shell`, which is an easy footgun when writing a hook command.
-- **No formal eval suite yet** — `evals/` exists as a placeholder; `--json` and `--no-fallback` were
-  added specifically to support running reproducible headless evals against it.
+- **Eval suite exists (26 tasks) but numbers are still being finalized.** `evals/run.py` runs each task
+  headlessly, classifies each run as `pass`/`fail`/`infra_error` (transient Vertex/network failures,
+  auto-retried with backoff), and `evals/aggregate.py` pools every `evals/results/*.json` batch into
+  `evals/RESULTS.md`. `--json` and `--no-fallback` exist specifically to make those runs reproducible
+  and scriptable. What's still missing: a SWE-bench Verified pilot (scripts exist under `swebench/`,
+  but the VM hasn't been created/run yet — see `swebench/README.md`).
 - **`--plan` in headless mode can't actually be approved.** `QuietUI.ask_permission` always returns
   `"n"` (see `forge/ui.py`), so every `exit_plan` call in a `forge -p --plan` run is rejected. The
   model isn't forced to keep calling it, though — nothing stops it from just returning ordinary

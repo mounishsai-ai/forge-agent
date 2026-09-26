@@ -96,6 +96,7 @@ Read from environment variables (`forge/config.py`):
 | `FORGE_MODEL` | `gemini-3.8-flash` | Default model |
 | `FORGE_MAX_TURNS` | `50` | Max tool-call round trips per user message |
 | `FORGE_COMPACT_AT` | `150000` | Prompt tokens at which auto-compaction kicks in |
+| `FORGE_SHELL_INIT` | *(empty)* | Prepended to every `run_shell` command, e.g. `source venv/bin/activate` |
 
 Other tunables are constants in `forge/config.py` you edit directly rather than env vars:
 `FALLBACK_MODELS` (`gemini-3.7-flash`, `gemini-3.5-flash`), `REQUEST_TIMEOUT` (60s per model call),
@@ -243,32 +244,55 @@ forge/
 docs/
   ARCHITECTURE.md     module-by-module design + lifecycle walkthrough
   INTERVIEW.md         interview Q&A grounded in this code
+  STUDY_GUIDE.md       how to read the code: Python/LLM concepts, a traced request, reading order
 examples/
   skills/write-tests/, skills/git-commit/    copy into .forge/skills/ to try
   commands/review.md                          copy into .forge/commands/ to try
-evals/                 (planned) headless eval suite; see Evals below
+evals/                 headless eval suite: 26 tasks + a runner; see Evals below
+swebench/              SWE-bench Verified pilot scripts (VM setup, run, evaluate); see SWE-bench below
 ```
 
 ## Evals
 
-`evals/` is a placeholder today — no runner or tasks are committed yet. The planned design: a small
-set of self-contained coding tasks, each its own folder with a starter `repo/` and a hidden `check.py`
-grading script. `python evals/run.py` will copy each task's `repo/` into a fresh temp directory, run
-`forge -p "<task prompt>" --yes --json --model gemini-3.7-flash --no-fallback` against it headlessly
-(`--yes` so it can actually write/edit without a human approving, `--json` to capture tokens/cost/which
-model answered, `--no-fallback` pinned to one model so runs are comparable to each other), then run that
-task's `check.py` against the resulting `repo/` to grade pass/fail. The runner will report pass rate,
-tokens, and cost across the suite. **Results coming soon — see `evals/`.**
+`evals/` is a real, working eval suite: 26 self-contained coding tasks under `evals/tasks/<id>/`
+(bugfixes, small features, and a "hard" set — multi-file refactors, concurrency, parsers, flaky
+tests), each with a starter `repo/` and a hidden `check.py` grading script the agent never sees.
+
+`python evals/run.py` copies each task's `repo/` into a fresh temp directory, runs
+`forge -p "<task prompt>" --yes --json --model gemini-3.7-flash --no-fallback` against it headlessly,
+then runs that task's `check.py` to grade pass/fail. Real runs over a network are noisy with
+infrastructure failures that have nothing to do with the agent's coding ability — Vertex 5xx/429s,
+DNS/oauth blips, dropped connections — so `evals/run.py` classifies every run as `pass`, `fail`
+(agent ran, checker disagreed), or `infra_error` (a known transient pattern; see
+`classify_outcome`), auto-retries `infra_error` runs with backoff (`--infra-retries`, default 2),
+and supports `--resume <results.json>` to re-run only the runs that came back `infra_error` in an
+earlier batch. Summaries report pass rate both including and excluding infra errors so a bad
+afternoon of 504s doesn't read as a regression. Useful flags: `--tasks`, `--repeat` (for pass-rate
+variance), `--workers` (parallel tasks), `--keep` (keep work dirs for debugging).
+
+`python evals/aggregate.py` pools every `evals/results/*.json` batch into `evals/RESULTS.md`: a
+per-model comparison table (pass rate, cost, tokens, time) and a per-task x per-model pass-fraction
+matrix, flagging any model with fewer than 20 valid runs as having insufficient data.
+
+**Numbers are still being finalized** — see [`evals/RESULTS.md`](evals/RESULTS.md) for the current
+comparison table rather than any figure repeated here, since it's regenerated as more runs land.
 
 ## SWE-bench
 
-Not implemented yet. The plan is a small pilot on a subset of SWE-bench Verified instances, run inside
-Docker on a disposable VM (to sandbox `run_shell` against real, larger repositories) using the same
-`forge -p --json --no-fallback` headless path as the `evals/` runner above. No numbers exist yet —
-this section will be filled in once that pilot has actually run.
+Not run yet, but the scripts are written and committed under [`swebench/`](swebench/README.md): a
+`setup_vm.sh` to create/tear down a disposable GCE VM with Docker, `run_forge.py` to run Forge inside
+the official SWE-bench Verified containers for each selected instance (writing `predictions.jsonl` +
+per-instance token/cost stats), and `evaluate.sh` / `summarize.py` to grade the patches with the
+official harness and report a resolved-rate line. The VM itself has to be created and billed by
+whoever runs the pilot (see `swebench/README.md`'s step-by-step) — it hasn't been created in this
+environment yet, so there are no results to report. `swebench/README.md` also documents exactly how
+results should be reported once there are some: subset size and seed, pass@1 only, and the model +
+Forge commit named alongside the score.
 
 ## Docs
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how it's built and why, module by module, with the
   agent-loop and module-layout diagrams and a full request lifecycle walkthrough.
 - [`docs/INTERVIEW.md`](docs/INTERVIEW.md) — interview questions and answers grounded in this code.
+- [`docs/STUDY_GUIDE.md`](docs/STUDY_GUIDE.md) — how to read Forge's code: Python/LLM concepts used,
+  one request traced step by step, a suggested reading order, and a glossary.
