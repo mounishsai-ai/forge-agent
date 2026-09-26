@@ -154,6 +154,8 @@ class GeminiLLM:
         models = [self.model] + [m for m in self.fallbacks if m != self.model]
         healthy = [m for m in models if self.broken_until.get(m, 0) < now] or models
         last_error = None
+        if len(models) == 1:
+            attempts_per_model = max(attempts_per_model, 6)   # no fallback to switch to: be more patient
         for model in healthy:
             for attempt in range(attempts_per_model):
                 try:
