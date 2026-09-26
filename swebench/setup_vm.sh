@@ -66,7 +66,7 @@ case "$cmd" in
       git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo "unknown"
       if [ -n "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)" ]; then echo "dirty: uncommitted changes present"; fi
     } > "$tmp/FORGE_COMMIT"
-    gcloud compute scp --project="$PROJECT" --zone="$ZONE" "$tmp/forge.tar.gz" "$tmp/FORGE_COMMIT" "$VM":~/
+    gcloud compute scp --project="$PROJECT" --zone="$ZONE" "$tmp/forge.tar.gz" "$tmp/FORGE_COMMIT" "$VM":
     gcloud compute ssh "$VM" --project="$PROJECT" --zone="$ZONE" --command \
       'rm -rf ~/forge && mkdir -p ~/forge && tar -xzf ~/forge.tar.gz -C ~/forge && mv ~/FORGE_COMMIT ~/forge/ && echo copied to ~/forge'
     rm -rf "$tmp"
