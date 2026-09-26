@@ -7,6 +7,7 @@ import json
 from contextlib import contextmanager
 
 from rich.console import Console
+from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.syntax import Syntax
@@ -25,6 +26,8 @@ def _short_args(args: dict, limit: int = 100) -> str:
 
 
 class ConsoleUI:
+    streams = True   # the agent checks this: True = show answers live via stream(), token by token
+
     def assistant_text(self, text: str) -> None:
         if text.strip():
             console.print(Markdown(text))
@@ -65,9 +68,42 @@ class ConsoleUI:
         with console.status("[dim]thinking...[/]", spinner="dots"):
             yield
 
+    @contextmanager
+    def stream(self):
+        """Show the model's answer live. Yields an `on_text(chunk)` callback for the LLM layer.
+
+        Spinner until the first visible text arrives, then a rich Live view that re-renders
+        the growing Markdown on every chunk. rich allows only ONE live display at a time (the
+        spinner is one too), so the spinner is stopped before the Live view starts. When the
+        block ends, Live leaves the final full render on screen, so nothing is printed twice.
+        """
+        status = console.status("[dim]thinking...[/]", spinner="dots")
+        status.start()
+        live, buffer = None, []
+
+        def on_text(chunk: str) -> None:
+            nonlocal live
+            buffer.append(chunk)
+            if live is None:
+                status.stop()
+                live = Live(Markdown(""), console=console, refresh_per_second=12)
+                live.start()
+            live.update(Markdown("".join(buffer)))
+
+        try:
+            yield on_text
+        finally:   # also runs on Ctrl+C / API errors, so the terminal is never left in a broken state
+            status.stop()
+            if live is not None:
+                live.stop()
+                if not console.is_terminal:   # rich only ends the line itself on a real terminal
+                    console.line()
+
 
 class QuietUI(ConsoleUI):
     """For headless runs: no output except errors; permission requests are denied (use --yes to allow)."""
+
+    streams = False   # headless/evals/sub-agents: plain generate(), nothing drawn live
 
     def __init__(self, verbose: bool = False):
         self.verbose = verbose

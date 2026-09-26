@@ -159,13 +159,10 @@ def test_repair_history_leaves_no_dangling_function_calls(fake_llm_factory, fake
     assert fr.response == {"error": "Cancelled by user."}
 
 
-def test_repair_history_marks_a_successfully_run_tool_as_cancelled_too(project_dir, fake_llm_factory, fake_ui):
-    """Documents a real bug: forge/agent.py's `run()` builds the function_response list for a
-    whole turn locally and only appends it to history after the loop over resp.tool_calls
-    finishes (agent.py:59-70). If a later call in the same turn raises KeyboardInterrupt, the
-    successful result from an earlier call in that same turn is discarded, and _repair_history
-    (agent.py:113-123) reports EVERY call in that turn as 'Cancelled by user' -- even the one
-    that actually ran and changed the filesystem. So the model's history disagrees with reality."""
+def test_repair_history_keeps_real_result_of_a_tool_that_already_ran(project_dir, fake_llm_factory, fake_ui):
+    """Ctrl+C during the 2nd call of a turn: the 1st call (a write) really ran, so the repaired
+    history must report its REAL result; only the unfinished call is 'Cancelled by user.'.
+    (Previously every call in the turn was marked cancelled, so history disagreed with reality.)"""
     llm = fake_llm_factory([{"calls": [
         {"name": "write_file", "args": {"path": "written.txt", "content": "real content"}, "id": "call_write"},
         {"name": "boom", "args": {}, "id": "call_boom"},
@@ -176,10 +173,11 @@ def test_repair_history_marks_a_successfully_run_tool_as_cancelled_too(project_d
     # The write really happened...
     assert (project_dir / "written.txt").read_text(encoding="utf-8") == "real content"
 
-    # ...but the repaired history claims it was cancelled, not that it succeeded.
+    # ...and the repaired history says so; only the interrupted call is marked cancelled.
     last = agent.history[-1]
     responses = {p.function_response.id: p.function_response.response for p in last.parts if p.function_response}
-    assert responses["call_write"] == {"error": "Cancelled by user."}
+    assert "output" in responses["call_write"]
+    assert "Cancelled" not in responses["call_write"]["output"]
     assert responses["call_boom"] == {"error": "Cancelled by user."}
 
 
