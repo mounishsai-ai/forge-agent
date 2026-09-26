@@ -340,6 +340,38 @@ todo list, `files_read`, and `always_allowed` tools — a resumed session starts
 (`cli.repl`) — `run_headless` (`forge -p`) never calls `session.load` or `session.save`, so one-shot
 runs are not resumable.
 
+### `forge/checkpoints.py` — file checkpoints and `/undo`
+Like Claude Code's checkpoints, with no git required. **What:** right *before* `write_file` or
+`edit_file` changes a file, it calls `checkpoints.record(path)`, which saves the file's current bytes
+(or `None` = "did not exist"). Snapshots are grouped per **user turn**: `cli.repl` calls
+`checkpoints.begin_turn(text)` just before `agent.run(text)` (also before a custom slash command), so
+`agent.py` never needs to know checkpoints exist. `/undo` reverts the most recent turn, `/undo N` the
+last N, `/checkpoints` lists them (1 = most recent).
+**Design choices (and why):**
+- *First snapshot per file per turn wins.* If the model edits a file 5 times in one turn, undo must
+  return to the state before the turn, not before the 5th edit.
+- *Turns are created lazily on the first write.* A turn that only reads code creates no checkpoint,
+  so `/undo` always undoes something visible.
+- *Undo walks turns newest-first*, so a file touched in several turns ends at its oldest snapshot;
+  files the turn created are deleted.
+- *Bytes, not text*, so CRLF line endings and encodings come back exactly.
+- *The model is told.* After an undo, a `[harness]` user note listing the reverted files plus a short
+  model acknowledgement are appended to history (a pair keeps user/model turns alternating), and the
+  paths are dropped from `files_read` so the read-before-edit guard makes the model re-read them.
+  Without this, the model would "remember" edits that no longer exist.
+- *Storage:* in memory, and in the REPL also on disk at `.forge/checkpoints/<session>/<turn>/`
+  (`manifest.json` + one `.bin` per file), so `/undo` still works after `forge --resume`. Headless
+  (`forge -p`, evals) and tests record in memory only: the process exits right after, and we don't
+  want to litter an eval's work directory.
+- *Module-level store* (like `files_read`): tools are plain functions with no `Agent` reference.
+  Writes from a `task` sub-agent land in the current turn too. A lock guards it against threads.
+
+**Limitation:** only `write_file`/`edit_file` are tracked. **Anything `run_shell` does (`rm`,
+`git checkout`, `sed -i`, a formatter, `npm install`) and anything an MCP tool does is NOT captured**
+and is not undone: a shell command can touch any file and we can't know which in advance, and
+snapshotting the whole project before every command would be too slow. `/undo` prints a reminder of
+this. Git remains the real safety net; checkpoints are the quick "oops, undo that".
+
 ### `forge/prompts.py` — building the system prompt
 `build_system_prompt()` concatenates: `BASE` (role + house rules, including one fixed sentence
 telling the model to call `skill(name)` before matching work), an `Environment:` block (cwd, OS,
@@ -452,6 +484,8 @@ report. Thinking tokens are billed at the output rate (`usage.output_tokens + us
 - **Only read-only tool calls run in parallel.** Writes/shell (and `task`/`todo`) still run one at a
   time; a Ctrl+C during a parallel batch cannot stop a tool thread that is already running (it finishes
   in the background, and its result is discarded unless it was already done).
+- **`/undo` doesn't cover shell commands.** Checkpoints only snapshot `write_file`/`edit_file`;
+  file changes made through `run_shell` or MCP tools cannot be undone by Forge (see `checkpoints.py`).
 - **No sandboxing beyond permissions.** There is no container, VM, or restricted OS user. `Permissions`
   and `BLOCKLIST` are the only barrier between the model and the real filesystem/shell.
 - **The shell blocklist is bypassable by construction.** It's a small set of regexes checked only

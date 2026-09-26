@@ -11,20 +11,24 @@ import os
 import sys
 import time
 
-from forge import __version__, config, context, mcp_client, session, skills
+from google.genai import types
+
+from forge import __version__, checkpoints, config, context, mcp_client, session, skills
 from forge.agent import Agent
 from forge.hooks import Hooks
 from forge.llm import GeminiLLM
 from forge.permissions import Permissions
 from forge.prompts import build_system_prompt
 from forge.subagent import make_task_tool
-from forge.tools import ALL_TOOLS, todo
+from forge.tools import ALL_TOOLS, base, todo
 from forge.ui import ConsoleUI, QuietUI, console
 
 HELP = """Commands:
   /help            this help
   /clear           start a fresh conversation
   /compact         summarize the conversation to free up context
+  /undo [N]        revert file changes from the last N turns (default 1)
+  /checkpoints     list turns that changed files
   /cost            tokens used and estimated cost
   /model [name]    show or switch model
   /tools           list tools
@@ -99,6 +103,7 @@ def repl(args) -> None:
             ui.info(f"Resumed session {sid} ({len(agent.history)} messages).")
         except FileNotFoundError as e:
             ui.error(str(e))
+    checkpoints.set_session(sid)   # on --resume this reloads saved checkpoints, so /undo still works
 
     console.print(f"[bold]Forge[/] v{__version__}  [dim]{agent.llm.model} | mode: {agent.permissions.mode} | "
                   f"{os.getcwd()}[/]\n[dim]Type /help for commands. Ctrl+C interrupts, /exit quits.[/]")
@@ -114,6 +119,7 @@ def repl(args) -> None:
                 break
             continue
         try:
+            checkpoints.begin_turn(text)   # new user turn = new checkpoint group (agent.py stays unaware)
             agent.run(text)
         except Exception as e:   # API errors etc: report and keep the session alive
             ui.error(f"{type(e).__name__}: {e}")
@@ -161,6 +167,16 @@ def handle_command(text: str, agent: Agent, ui) -> str | None:
         ui.info(f"Permission mode: {agent.permissions.mode}")
     elif cmd == "/sessions":
         ui.info("\n".join(session.list_sessions()) or "No sessions.")
+    elif cmd == "/undo":
+        undo_turns(arg, agent, ui)
+    elif cmd == "/checkpoints":
+        turns = checkpoints.list_turns()
+        if not turns:
+            ui.info("No checkpoints yet (no files changed by write_file/edit_file).")
+        for back, t in enumerate(reversed(turns), 1):   # numbered like /undo N: 1 = most recent
+            console.print(f"  {back}  {t['time']}  {t['prompt'][:60]!r}  "
+                          f"({len(t['files'])} file(s): {', '.join(os.path.basename(f) for f in t['files'])})",
+                          highlight=False, markup=False)   # prompt text may contain [brackets]
     elif cmd == "/mcp":
         console.print(mcp_client.status(), highlight=False, markup=False)
     else:
@@ -170,12 +186,33 @@ def handle_command(text: str, agent: Agent, ui) -> str | None:
         name = cmd[1:]
         if name in custom:
             try:
+                checkpoints.begin_turn(text)
                 agent.run(skills.render_command(custom[name], arg))
             except Exception as e:   # same handling as a plain-text turn in repl()
                 ui.error(f"{type(e).__name__}: {e}")
         else:
             ui.error(f"Unknown command {cmd}. Try /help.")
     return None
+
+
+def undo_turns(arg: str, agent: Agent, ui) -> None:
+    """/undo [N]: restore files from checkpoints, then tell the model what happened."""
+    if arg and (not arg.isdigit() or int(arg) == 0):
+        ui.error("Usage: /undo [N]  (N = how many turns to go back, default 1)")
+        return
+    changes = checkpoints.undo(int(arg or 1))
+    if not changes:
+        ui.info("Nothing to undo (only write_file/edit_file changes are tracked, not shell commands).")
+        return
+    for path, what in changes:
+        # The model's view of these files is now stale: make it read them again before editing.
+        base.files_read.discard(path)
+        ui.info(f"{what}: {path}")
+    # Append a user note + model ack as a pair: keeps user/model turns alternating, and the next
+    # real message then arrives in the model's context right after it.
+    agent.history.append(types.Content(role="user", parts=[types.Part(text=checkpoints.undo_note(changes))]))
+    agent.history.append(types.Content(role="model", parts=[types.Part(text="Understood. I'll re-read those files before changing them.")]))
+    ui.info("Note: changes made by shell commands (run_shell) are not tracked and were not undone.")
 
 
 if __name__ == "__main__":

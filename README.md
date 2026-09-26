@@ -70,6 +70,8 @@ forge --resume 20260926-140501          # continue a specific session by id
 | `/help` | Show the command list |
 | `/clear` | Start a fresh conversation |
 | `/compact` | Summarize the conversation now, to free up context |
+| `/undo [N]` | Revert file changes (write_file/edit_file only, not shell commands) from the last N turns, default 1 |
+| `/checkpoints` | List recent turns that changed files |
 | `/cost` | Show token usage and estimated cost so far |
 | `/model [name]` | Show or switch the model for the rest of the session |
 | `/tools` | List available tools |
@@ -206,6 +208,7 @@ forge/
   hooks.py             .forge/hooks.json pre_tool / post_tool
   context.py           tool output truncation + auto-compaction
   session.py           save/resume conversations as JSON
+  checkpoints.py       file snapshots per turn for /undo (write_file/edit_file only)
   prompts.py           system prompt + skills index + project memory loading
   skills.py            discovers .forge/skills/*/SKILL.md + .forge/commands/*.md, parses/renders them
   subagent.py          the `task` tool (delegates to a fresh sub-agent)

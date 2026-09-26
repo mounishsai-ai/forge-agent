@@ -1,5 +1,6 @@
 import os
 
+from forge import checkpoints
 from forge.tools.base import Tool, ToolError, files_read, resolve
 
 
@@ -28,6 +29,7 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
     text = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
     if crlf:
         text = text.replace("\n", "\r\n")
+    checkpoints.record(p)   # only after all checks pass: a failed edit changes nothing, so no snapshot
     with open(p, "w", encoding="utf-8", newline="") as f:
         f.write(text)
     return f"Edited {path} ({count if replace_all else 1} replacement(s))"

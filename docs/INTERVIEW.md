@@ -224,6 +224,17 @@ across runs. I'd report pass rate, tokens, and cost per task. I'd also want to b
 standard like SWE-bench eventually, but I don't have numbers to share yet — that's explicitly future
 work, not something I'd claim is done.
 
+**Q: How does `/undo` work, and what can't it undo?**
+A: `forge/checkpoints.py`. Right before `write_file`/`edit_file` change a file, they snapshot its old
+bytes (or "didn't exist"), grouped per user turn — the REPL calls `begin_turn()` before `agent.run`, so
+the agent loop is untouched. Only the first snapshot of a file per turn is kept, so undo returns to
+the state before the turn. `/undo N` restores newest-first and deletes files the turn created, then
+appends a note to the history so the model knows its edits are gone, and clears those paths from
+`files_read` so it must re-read them. Snapshots are also saved under `.forge/checkpoints/` so undo
+survives `--resume`. What it can't undo: anything done by `run_shell` (or MCP tools) — a shell command
+can touch any file and I can't know which beforehand, and snapshotting the whole repo per command is
+too slow. That's the same trade-off Claude Code makes; git is still the real safety net.
+
 **Q: What was the hardest bug you hit building this?**
 A: `gemini-3.8-flash` returning intermittent `504` (deadline exceeded) under load — a plain retry made
 it worse because retrying the same overloaded model just burned the same timeout again. The fix was in
