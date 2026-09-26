@@ -14,6 +14,8 @@ def run_shell(command: str, timeout: int = config.SHELL_TIMEOUT) -> str:
     if config.SHELL_INIT:
         command = f"{config.SHELL_INIT}\n{command}"
     if IS_WINDOWS:
+        # Without this, PowerShell reports every failing program's exit code as just 1.
+        command += "\nif ($LASTEXITCODE) { exit $LASTEXITCODE } elseif (-not $?) { exit 1 }"
         argv = ["powershell", "-NoProfile", "-NonInteractive", "-Command", command]
     else:
         argv = ["bash", "-c", command]

@@ -14,8 +14,11 @@ BLOCKLIST = [
     # recursive rm (any flag order/splitting) aimed at /, /*, ~, $HOME or a bare *
     r"\brm\s+(?=(?:[^;&|]*\s)?-[a-zA-Z]*[rR])[^;&|]*\s(/|/\*|~/?|~/\*|\$HOME/?|\*)(\s|;|&|\||$)",
     r"Remove-Item\b.*-Recurse.*\b[A-Za-z]:\\?\s*$",      # wipe a whole drive
-    r"\b(format|mkfs|diskpart)\b",
-    r"\b(shutdown|reboot|Stop-Computer|Restart-Computer)\b",
+    # Disk/power commands only when they are the command being run (start of line, after ; & | or sudo),
+    # so `git log --pretty=format:%H` or `grep shutdown app.py` are not blocked.
+    r"\bformat(\.com)?\s+[A-Za-z]:",
+    r"(^|[;&|]\s*|sudo\s+)(mkfs(\.\w+)?|diskpart|shutdown|reboot|poweroff|halt)\b",
+    r"(^|[;&|]\s*)(Stop-Computer|Restart-Computer)\b",
     r"git\s+push\b.*(--force|-f\b)",
     r":\(\)\s*\{\s*:\|:&\s*\};:",                        # fork bomb
 ]
@@ -35,10 +38,12 @@ class Permissions:
                 if re.search(pattern, cmd, re.IGNORECASE):
                     return False, f"Blocked: command matches a dangerous pattern ({pattern})."
 
-        if not tool.needs_permission or self.mode == "auto" or tool.name in self.always_allowed:
+        if not tool.needs_permission:
             return True, ""
-        if self.mode == "readonly":
+        if self.mode == "readonly":   # checked before "always": read-only must override earlier approvals
             return False, "Denied: Forge is in read-only mode."
+        if self.mode == "auto" or tool.name in self.always_allowed:
+            return True, ""
 
         answer = ui.ask_permission(tool.name, args)   # 'y', 'n' or 'a'
         if answer == "a":

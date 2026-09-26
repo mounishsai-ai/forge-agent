@@ -5,6 +5,9 @@ description = "Forge: a Claude-Code-style AI coding agent harness built from scr
 requires-python = ">=3.10"
 dependencies = ["google-genai>=1.0", "rich>=13"]
 
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
 [project.scripts]
 forge = "forge.cli:main"
 
@@ -14,3 +17,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["forge*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

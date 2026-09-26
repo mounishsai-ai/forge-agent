@@ -11,6 +11,11 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
         raise ToolError(f"Read {path} with read_file before editing it.")
     with open(p, encoding="utf-8", newline="") as f:
         text = f.read()
+    # read_file shows the model "\n" line endings, so match in that form and restore CRLF when saving.
+    crlf = "\r\n" in text
+    if crlf:
+        text = text.replace("\r\n", "\n")
+        old_string, new_string = old_string.replace("\r\n", "\n"), new_string.replace("\r\n", "\n")
 
     # Exact string match instead of line numbers or diffs: robust to the model miscounting lines,
     # and requiring a UNIQUE match stops it from editing the wrong occurrence.
@@ -21,6 +26,8 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
         raise ToolError(f"old_string appears {count} times. Add surrounding lines to make it unique, or set replace_all.")
 
     text = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
+    if crlf:
+        text = text.replace("\n", "\r\n")
     with open(p, "w", encoding="utf-8", newline="") as f:
         f.write(text)
     return f"Edited {path} ({count if replace_all else 1} replacement(s))"
