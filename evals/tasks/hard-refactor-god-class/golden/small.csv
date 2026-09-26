@@ -1,0 +1,12 @@
+Section,Key,Quantity,Revenue
+Category,Electronics,4,109.96
+Category,Home,3,120.00
+Month,2024-01,4,109.96
+Month,2024-02,3,120.00
+Day,2024-01-05,3,59.97
+Day,2024-01-20,1,49.99
+Day,2024-02-02,3,120.00
+TopProduct,Rug,,89.00
+TopProduct,Widget,,59.97
+TopProduct,Gadget,,49.99
+Total,,7,229.96

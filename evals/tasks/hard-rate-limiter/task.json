@@ -1,0 +1,6 @@
+{
+  "id": "hard-rate-limiter",
+  "category": "feature",
+  "difficulty": "hard",
+  "prompt": "Our API gateway (gateway.py) needs real rate limiting -- right now Gateway.handle() calls limiter.allow(key) but there's no working limiter to give it. Implement both TokenBucketLimiter and SlidingWindowLimiter in ratelimiter.py, exactly per the docstrings already written there (they're both currently stubs that raise NotImplementedError). Both must implement the shared RateLimiter interface (allow(key) -> bool), take an injected Clock from clock.py instead of reading the real wall clock, and support per-key overrides so specific keys (e.g. a premium API key) can have a different limit than everyone else. There's a starter test_ratelimiter.py with a few basic cases -- passing it is necessary but not sufficient, since it doesn't cover every boundary condition described in the docstrings."
+}

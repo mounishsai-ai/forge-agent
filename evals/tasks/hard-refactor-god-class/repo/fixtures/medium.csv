@@ -1,0 +1,13 @@
+date,category,product,quantity,unit_price
+2024-01-03,Electronics,Widget,2,19.99
+2024-01-10,Electronics,Widget,1,19.99
+2024-01-15,Electronics,Gadget,4,49.99
+2024-01-28,Books,Novel,3,12.00
+2024-02-01,Books,Novel,3,12.00
+2024-02-05,Home,Lamp,1,15.50
+2024-02-14,Home,Rug,2,89.00
+2024-02-20,Home,Lamp,1,15.50
+2024-03-01,Electronics,Widget,5,19.99
+2024-03-02,Books,Comic,1,4.50
+2024-03-02,Books,Comic,1,4.50
+2024-03-15,Toys,Blocks,10,3.25

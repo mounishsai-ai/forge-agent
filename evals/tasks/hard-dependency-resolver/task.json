@@ -1,0 +1,6 @@
+{
+  "id": "hard-dependency-resolver",
+  "category": "feature",
+  "difficulty": "hard",
+  "prompt": "Implement dependency_resolver.py exactly per its module docstring: parse_version, satisfies (constraint matching for exact/>=/</~/^ constraints), and resolve(requirements, index) for a mini package manager. resolve() must pick, for every package in the transitive dependency closure, the highest version that satisfies all constraints placed on it -- but some inputs only have a valid overall solution if you're willing to back off a package's version after discovering a downstream conflict, so a greedy single-pass 'always take the highest version immediately' approach will wrongly report a conflict on those inputs. You'll need real backtracking search. Also detect and reject dependency cycles (by package name, across all versions) with a clear error, separate from ordinary version conflicts. There's a starter test_dependency_resolver.py with a few basic cases to check yourself against."
+}

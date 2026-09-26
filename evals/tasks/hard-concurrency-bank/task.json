@@ -1,0 +1,6 @@
+{
+  "id": "hard-concurrency-bank",
+  "category": "bugfix",
+  "difficulty": "hard",
+  "prompt": "We're getting reports about bank.py, our in-memory transfer service that's used from many threads at once (it backs a small HTTP API where each request runs transfer() on a worker thread). Two symptoms from support: (1) \"balances sometimes don't add up under load\" - after a burst of concurrent transfers, the sum of all account balances (including the house 'fees' account, which collects a flat per-transfer fee) is sometimes less than what it started at, even though every individual transfer looked fine. (2) \"occasionally a batch of transfers just hangs\" - a test run or request never completes and has to be killed. Both are real, distinct bugs in Bank.transfer() in bank.py (not in the test file). Fix bank.py so that under heavy concurrent, bidirectional load (many threads transferring back and forth between the same accounts, plus a wider spread of random transfers), (a) the total balance across every account is always conserved exactly, (b) no run ever hangs/deadlocks, and (c) the existing behavior (fees, insufficient-funds checks, validation errors) is unchanged. test_bank.py has the basic single-threaded behavior you should keep passing."
+}

@@ -1,0 +1,6 @@
+{
+  "id": "hard-async-crawler",
+  "category": "bugfix",
+  "difficulty": "hard",
+  "prompt": "Someone filed this complaint about our crawler (crawler.py): \"Crawls are slow to finish and our test site's fake server logs way more hits than there are actual pages -- feels like it's hammering the same page repeatedly. Also I swear I saw a traceback flash by once but the crawl 'finished successfully' and the report showed no errors at all, so now I don't trust the report.\" Figure out what's actually wrong and fix it. crawler.py's docstring says what correct behavior should be (respect max_concurrency, visit each normalized URL exactly once, never lose a fetch failure). There's a starter test_crawler.py with a couple of basic cases -- it already passes even on the current buggy code, since it doesn't happen to trigger any of the bugs, so don't treat it as proof things are fixed."
+}

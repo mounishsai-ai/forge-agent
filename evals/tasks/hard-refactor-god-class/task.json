@@ -1,0 +1,6 @@
+{
+  "id": "hard-refactor-god-class",
+  "category": "refactor",
+  "difficulty": "hard",
+  "prompt": "report_generator.py's ReportGenerator is a god class: it mixes CSV loading/validation, three different aggregations (by category, by month, by day, plus top products), and two render formats (CSV summary, HTML page) all in one file. Refactor it into separate modules by concern -- e.g. a loader module, an aggregator module, and a renderers module (CSV and HTML) -- while keeping the public API, generate_report(path, fmt), working exactly as before: same signature, same return value byte-for-byte for the same input, same exceptions for invalid input (including the exact ValueError messages, which mention 1-indexed row numbers). report_generator.py itself should end up as a thin orchestration layer, not the whole implementation. There's a starter test_report_generator.py with a few basic shape checks -- it already passes on the current, unrefactored code, so it doesn't prove the refactor is done."
+}

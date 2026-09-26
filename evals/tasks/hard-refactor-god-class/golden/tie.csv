@@ -1,0 +1,10 @@
+Section,Key,Quantity,Revenue
+Category,A,5,60.00
+Month,2024-01,5,60.00
+Day,2024-01-01,2,20.00
+Day,2024-01-02,2,20.00
+Day,2024-01-03,1,20.00
+TopProduct,Alpha,,20.00
+TopProduct,Mid,,20.00
+TopProduct,Zeta,,20.00
+Total,,5,60.00

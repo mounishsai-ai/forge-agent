@@ -1,0 +1,6 @@
+{
+  "id": "hard-parser-ini-roundtrip",
+  "category": "feature",
+  "difficulty": "hard",
+  "prompt": "Implement the INI-like config format described in the module docstring of ini_format.py: parse(text) -> Document and Document.dumps() must round-trip exactly for canonically-formatted input. Support section headers (with reopening), comments (';' and '#', preserved exactly), quoted values with \\\" and \\\\ escapes, multiline continuation lines (two-space indent), and raise IniError with the correct 1-indexed line number for duplicate keys within a section (and for malformed lines / bad escapes / unterminated quotes). Read the docstring carefully -- it pins down exact behavior for every edge case you need. There's a starter test_ini_format.py with a few basic cases to check yourself against."
+}

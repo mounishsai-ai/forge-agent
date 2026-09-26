@@ -1,0 +1,6 @@
+{
+  "id": "hard-fix-flaky-tests",
+  "category": "testing",
+  "difficulty": "hard",
+  "prompt": "Our CI randomly fails on test_inventory.py -- not every run, and not always the same test, so nobody's pinned it down. Make the suite deterministic without weakening what it actually checks. There are (at least) three separate causes: a test that depends on Python's set/dict iteration order (which varies run to run because string hashing is randomized -- compare as sets/sorted, don't assume one exact order), a test that calls time.sleep() and then asserts on real elapsed wall-clock time (inject an explicit time value using the `now` parameter Item.age_seconds() already accepts, instead of sleeping and hoping -- your fixed tests must not call time.sleep() at all), and two tests that share a hardcoded file path (inventory_data.json) with no cleanup, so they pass or fail depending on what order they happen to run in (use pytest's tmp_path fixture, or otherwise give each test its own isolated file, instead of a fixed shared path). Keep every assertion meaningful -- a test that no longer checks anything real would defeat the point."
+}

@@ -1,0 +1,6 @@
+{
+  "id": "hard-perf-dedupe",
+  "category": "bugfix",
+  "difficulty": "hard",
+  "prompt": "dedupe.py's find_near_duplicates(records) is correct (see test_dedupe.py for the exact grouping/ordering contract it follows) but it's O(n * number of groups found so far): for each record it linearly scans every group already formed and does a difflib comparison against that group's first member. It works fine on small lists but a batch job now feeding it around 50,000 records never finishes - it needs to run in well under 5 seconds on 50k records while producing exactly the same grouping/ordering as the current implementation. Figure out why the current approach is slow and rewrite it to scale, without changing what counts as a near-duplicate or the output format."
+}
