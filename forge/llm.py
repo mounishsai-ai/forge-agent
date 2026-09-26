@@ -72,7 +72,7 @@ def _merge_part(parts: list[types.Part], part: types.Part) -> None:
 
 
 # HTTP codes worth retrying: rate limit and transient server errors.
-RETRYABLE = {429, 500, 502, 503, 504}
+RETRYABLE = {429, 499, 500, 502, 503, 504}   # 499 = request cancelled server-side (seen under load)
 # Network-level failures (no HTTP status at all). google-auth raises its own TransportError
 # when it can't refresh the access token, e.g. while the internet is down.
 NETWORK_ERRORS = (httpx.TransportError, google.auth.exceptions.TransportError, OSError)
