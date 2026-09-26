@@ -1,0 +1,6 @@
+{
+  "id": "hard-js-event-emitter",
+  "category": "feature",
+  "difficulty": "hard",
+  "prompt": "Implement the EventEmitter class in emitter.js exactly per the docstring comment already there: on/off/once, a '*' wildcard event that fires on every emit() (receiving the event name plus the original args), per-listener error isolation (a throwing listener must not stop the other listeners or propagate out of emit()), listenerCount(event) (counts only that exact event name - '*' is counted separately from specific events), and emit() must operate on a snapshot of the currently-registered listeners so that a listener adding/removing listeners (including itself) during emit() doesn't corrupt that same emit() call. emitter.test.js has a few basic cases you can check yourself against."
+}

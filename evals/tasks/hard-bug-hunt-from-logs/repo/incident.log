@@ -1,0 +1,31 @@
+2026-09-24 02:58:41 INFO  pipeline: starting overnight batch for warehouse-west (40 orders)
+2026-09-24 02:58:41 INFO  pipeline: order ORD-1001 total=46.55 shipping=4.5 tags=['bulk']
+2026-09-24 02:58:41 INFO  pipeline: order ORD-1002 total=44.1 shipping=4.5 tags=['bulk', 'bulk']
+2026-09-24 02:58:42 INFO  pipeline: order ORD-1003 total=41.65 shipping=4.5 tags=['bulk', 'bulk', 'bulk']
+2026-09-24 02:58:42 INFO  pipeline: order ORD-1004 total=39.2 shipping=4.5 tags=['bulk', 'bulk', 'bulk', 'bulk']
+... (16 more orders processed successfully, each with one more accumulated
+    'bulk' tag than the last and a total exactly $2.45 lower) ...
+2026-09-24 02:59:03 INFO  pipeline: order ORD-1020 total=0.0 shipping=4.5 tags=['bulk' x20]
+2026-09-24 02:59:03 ERROR pipeline: order ORD-1021 failed
+Traceback (most recent call last):
+  File "pipeline.py", line 14, in process_order
+    total = compute_total(order)
+            ^^^^^^^^^^^^^^^^^^^^
+  File "pricing.py", line 14, in compute_total
+    raise ValueError(
+ValueError: order ORD-1021: computed total -2.45 is negative (subtotal=49.0, discount_percent=105)
+
+2026-09-24 02:59:03 ERROR pipeline: batch aborted, 20 orders processed, 20 orders unprocessed
+
+---
+Support ticket #4482 (warehouse-west, overnight batch job):
+
+"We batch-process overnight orders for warehouse-west. Almost every night,
+somewhere in the middle-to-end of the batch, one order crashes the whole
+run with a 'computed total is negative' error and we have to restart from
+the last checkpoint. It's never the same order number twice - it depends
+on how many orders are in that night's batch and how big they are. Small
+test batches never reproduce it; bigger batches fail sooner. The crash
+is in pricing.py, but the order that fails (ORD-1021 last night) looks
+completely normal by itself: 3 items, $49 subtotal, nothing unusual. Please
+find the actual bug - we don't think it's really about that one order."

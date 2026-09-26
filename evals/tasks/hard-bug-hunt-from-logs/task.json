@@ -1,0 +1,6 @@
+{
+  "id": "hard-bug-hunt-from-logs",
+  "category": "bugfix",
+  "difficulty": "hard",
+  "prompt": "Our overnight order-processing pipeline (models.py, orders.py, tagging.py, pricing.py, inventory.py, shipping.py, pipeline.py) keeps crashing partway through big batches. incident.log has the traceback and the support ticket describing it. The exception is raised in pricing.py, but that's just where it surfaces - the individual order it names is perfectly ordinary, and pricing.py's own logic is correct given the inputs it receives. Find the real root cause (it's in a different file) and fix it there, so process_batch can run an arbitrarily long batch of orders - including many large (3+ item) orders back to back - without ever raising and without any single order's discount/total being affected by orders processed before it. test_pipeline.py has the existing passing tests; don't break them."
+}
