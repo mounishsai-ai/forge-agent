@@ -1,5 +1,5 @@
 """Tool registry: the single list of tools the agent can use. Add a tool = add one file + one line here."""
-from forge.tools import edit_file, glob, grep, list_dir, read_file, run_shell, skill, todo, write_file
+from forge.tools import edit_file, glob, grep, list_dir, read_file, run_shell, skill, todo, web_fetch, write_file
 from forge.tools.base import Tool, ToolError
 
 ALL_TOOLS: list[Tool] = [
@@ -12,6 +12,7 @@ ALL_TOOLS: list[Tool] = [
     run_shell.TOOL,
     todo.TOOL,
     skill.TOOL,
+    web_fetch.TOOL,
 ]
 
 # Tools that cannot change anything. Sub-agents only get these.
