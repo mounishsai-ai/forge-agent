@@ -1,0 +1,16 @@
+[project]
+name = "forge-agent"
+version = "0.1.0"
+description = "Forge: a Claude-Code-style AI coding agent harness built from scratch on Gemini (Vertex AI)"
+requires-python = ">=3.10"
+dependencies = ["google-genai>=1.0", "rich>=13"]
+
+[project.scripts]
+forge = "forge.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["forge*"]
