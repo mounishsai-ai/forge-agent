@@ -6,6 +6,7 @@ Models not listed here are counted as $0, so add a price before trusting /cost f
 PRICES = {
     "gemini-3.8-flash": {"input": 0.75, "output": 3.75},
     "gemini-3.7-flash": {"input": 0.75, "output": 3.75},
+    "gemini-3.6-flash": {"input": 0.75, "output": 3.75},
     # From third-party price trackers (Sept 2026), not yet confirmed on Google's pricing page:
     "gemini-3.5-flash": {"input": 1.50, "output": 9.00},
     "gemini-3.1-pro-preview": {"input": 2.00, "output": 12.00},   # prompts <= 200K tokens
