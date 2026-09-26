@@ -665,3 +665,15 @@ billed at the output rate (`usage.output_tokens + usage.thinking_tokens`).
   can never leave plan mode, so no edit/write/shell call in that run will ever be allowed to
   execute, no matter how many times it tries or what `--mode`/`--yes` said. `--plan` is really an
   interactive-REPL feature; headless mode accepts the flag mainly for consistency with the REPL.
+
+### forge/openai_llm.py — second provider (any OpenAI-compatible API)
+
+`OpenAICompatLLM` has the same `generate(history, tools, system) -> LLMResponse` contract as
+`GeminiLLM`, so the agent loop can't tell them apart. It translates at the edge:
+`to_openai_messages()` turns the google-genai history into Chat Completions `messages` (model turns ->
+`assistant` + `tool_calls`; function responses -> `tool` messages with the matching `tool_call_id`;
+Gemini thought parts/signatures dropped), and `_parse()` turns the reply back into a `types.Content`.
+Retries 408/409/429/5xx and network errors with backoff; malformed tool-call JSON from an open model
+becomes a readable tool error instead of a crash. Selected with `--provider openai --base-url ...`
+(or `FORGE_PROVIDER` / `FORGE_BASE_URL`). No streaming or fallback chain yet.
+

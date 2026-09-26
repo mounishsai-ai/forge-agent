@@ -106,6 +106,23 @@ Relevant CLI flags: `--model`, `--mode {ask,auto,readonly}`, `-y`/`--yes`, `--ma
 `--no-subagents`, `--no-fallback` (disable model fallback for reproducible runs), `--json`, `--verbose`,
 `--plan` (start in plan mode — see Plan mode below).
 
+## Open models (OpenAI-compatible providers)
+
+Besides Gemini, Forge can drive **any OpenAI-compatible Chat Completions API**, which is how most
+open models are served: Qwen, DeepSeek, Llama, gpt-oss via OpenRouter / Together / Groq / Fireworks /
+Alibaba's Qwen API, or locally via Ollama / vLLM / LM Studio.
+
+```bash
+export FORGE_API_KEY=...            # or OPENAI_API_KEY; not needed for local Ollama
+forge --provider openai --base-url https://openrouter.ai/api/v1 --model qwen/qwen3-coder
+forge --provider openai --base-url http://localhost:11434/v1 --model qwen2.5-coder:32b   # Ollama
+```
+
+`forge/openai_llm.py` translates at the edge: the agent keeps one history format, and the provider
+converts it to OpenAI `messages` (assistant `tool_calls` <-> `tool` results with matching ids) and back.
+The agent loop, tools, permissions, compaction and sessions are unchanged. Streaming and model fallback
+are Gemini-only for now. Tested offline against a fake OpenAI server (`tests/test_openai_llm.py`).
+
 ## Plan mode
 
 `/plan` (REPL) or `--plan` (either mode) puts Forge into a read-only exploration mode, the same idea

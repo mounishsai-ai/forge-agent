@@ -381,6 +381,15 @@ model pass before it reaches the main agent.
 
 ## Comparisons
 
+**Q: Can Forge run open models like Qwen?**
+A: Yes, through `forge/openai_llm.py`, a second provider for any OpenAI-compatible Chat Completions API
+(OpenRouter, Together, Groq, Ollama, vLLM...). The agent's history stays in one format (google-genai
+`Content`), and the provider translates at the edge: model turns become `assistant` messages with
+`tool_calls`, tool results become `tool` messages whose `tool_call_id` matches the call. Gemini-only data
+(thought signatures) is dropped because other models can't use it. Because the provider exposes the
+same `generate(history, tools, system) -> LLMResponse` method, nothing else in the harness changed:
+that's the payoff of isolating the API in one layer.
+
 **Q: How does this compare to Claude Code / Cursor / Aider?**
 A: Same fundamental shape — an LLM-driven loop with file/shell tools and a permission layer — built
 from scratch rather than on top of an agent framework, specifically so every part of the loop is mine to

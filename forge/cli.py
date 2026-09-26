@@ -17,6 +17,7 @@ from forge import __version__, checkpoints, config, context, mcp_client, session
 from forge.agent import Agent
 from forge.hooks import Hooks
 from forge.llm import GeminiLLM
+from forge.openai_llm import OpenAICompatLLM
 from forge.permissions import Permissions
 from forge.prompts import build_system_prompt
 from forge.subagent import make_task_tool
@@ -41,7 +42,12 @@ HELP = """Commands:
 
 
 def build_agent(args, ui) -> Agent:
-    llm = GeminiLLM(model=args.model, fallbacks=[] if args.no_fallback else config.FALLBACK_MODELS)
+    if args.provider == "openai":   # any OpenAI-compatible API: OpenRouter, Together, Groq, Ollama, vLLM...
+        if not args.base_url:
+            raise SystemExit("--provider openai needs --base-url (or FORGE_BASE_URL), e.g. http://localhost:11434/v1")
+        llm = OpenAICompatLLM(model=args.model, base_url=args.base_url)
+    else:
+        llm = GeminiLLM(model=args.model, fallbacks=[] if args.no_fallback else config.FALLBACK_MODELS)
     mode = "auto" if args.yes else args.mode
     agent = Agent(llm=llm, ui=ui, permissions=Permissions(mode), system_prompt=build_system_prompt(),
                   tools=ALL_TOOLS, max_turns=args.max_turns, hooks=Hooks.load())
@@ -66,6 +72,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="forge", description="Forge: an AI coding agent in your terminal.")
     p.add_argument("-p", "--prompt", help="run one prompt headlessly and exit")
     p.add_argument("--model", default=config.MODEL)
+    p.add_argument("--provider", default=os.environ.get("FORGE_PROVIDER", "gemini"), choices=["gemini", "openai"],
+                   help="gemini (default) or openai = any OpenAI-compatible API (open models via OpenRouter, Ollama, ...)")
+    p.add_argument("--base-url", default=os.environ.get("FORGE_BASE_URL"), help="API base URL for --provider openai")
     p.add_argument("--mode", default="ask", choices=["ask", "auto", "readonly"])
     p.add_argument("-y", "--yes", action="store_true", help="auto-approve all tool calls (mode=auto)")
     p.add_argument("--resume", nargs="?", const="__last__", help="resume a session (default: most recent)")
