@@ -11,6 +11,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable
 
+import google.auth.exceptions
 import httpx
 from google import genai
 from google.genai import errors, types
@@ -72,6 +73,9 @@ def _merge_part(parts: list[types.Part], part: types.Part) -> None:
 
 # HTTP codes worth retrying: rate limit and transient server errors.
 RETRYABLE = {429, 500, 502, 503, 504}
+# Network-level failures (no HTTP status at all). google-auth raises its own TransportError
+# when it can't refresh the access token, e.g. while the internet is down.
+NETWORK_ERRORS = (httpx.TransportError, google.auth.exceptions.TransportError, OSError)
 BREAKER_SECONDS = 600
 
 
@@ -154,8 +158,9 @@ class GeminiLLM:
         models = [self.model] + [m for m in self.fallbacks if m != self.model]
         healthy = [m for m in models if self.broken_until.get(m, 0) < now] or models
         last_error = None
-        if len(models) == 1:
-            attempts_per_model = max(attempts_per_model, 6)   # no fallback to switch to: be more patient
+        has_fallback = len(healthy) > 1
+        if not has_fallback:
+            attempts_per_model = max(attempts_per_model, 6)   # nothing to switch to: be more patient
         for model in healthy:
             for attempt in range(attempts_per_model):
                 try:
@@ -166,13 +171,20 @@ class GeminiLLM:
                     if e.code not in RETRYABLE or not can_retry():
                         raise              # e.g. 400 bad request: retrying won't help
                     last_error = e
-                    if e.code == 504:
-                        break              # deadline exceeded: we already waited long, don't retry this model
+                    if e.code == 504 and has_fallback:
+                        break              # deadline exceeded: we already waited long, try the next model
                 except httpx.TimeoutException as e:
                     if not can_retry():
                         raise
                     last_error = e
-                    break                  # already waited REQUEST_TIMEOUT; go straight to the next model
+                    if has_fallback:
+                        break              # already waited REQUEST_TIMEOUT; go straight to the next model
+                except NETWORK_ERRORS as e:
+                    # Wi-Fi drop, DNS failure, connection reset, auth-token refresh failing offline...
+                    # Not the model's fault: wait and retry the same model.
+                    if not can_retry():
+                        raise
+                    last_error = e
                 # Exponential backoff with jitter (1s, 2s, 4s... + random) so retries don't stampede.
                 time.sleep(min(2 ** attempt, 30) + random.random())
             self.broken_until[model] = time.time() + BREAKER_SECONDS
