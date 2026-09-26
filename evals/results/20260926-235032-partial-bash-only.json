@@ -1,0 +1,485 @@
+{
+ "model": "gemini-3.7-flash",
+ "partial": true,
+ "source_log": "q_abl1.log",
+ "results": [
+  {
+   "id": "bugfix-average-score-crash",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 176.0
+  },
+  {
+   "id": "bugfix-average-score-crash",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 179.0
+  },
+  {
+   "id": "bugfix-average-score-crash",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 176.0
+  },
+  {
+   "id": "bugfix-pagination-off-by-one",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 39.0
+  },
+  {
+   "id": "bugfix-pagination-off-by-one",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 65.0
+  },
+  {
+   "id": "bugfix-inventory-key-mismatch",
+   "category": "bugfix",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 243.0
+  },
+  {
+   "id": "bugfix-pagination-off-by-one",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 24.0
+  },
+  {
+   "id": "bugfix-inventory-key-mismatch",
+   "category": "bugfix",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 140.0
+  },
+  {
+   "id": "bugfix-inventory-key-mismatch",
+   "category": "bugfix",
+   "difficulty": "medium",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 155.0
+  },
+  {
+   "id": "extract_helper",
+   "category": "refactor",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 51.0
+  },
+  {
+   "id": "extract_helper",
+   "category": "refactor",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 32.0
+  },
+  {
+   "id": "extract_helper",
+   "category": "refactor",
+   "difficulty": "medium",
+   "attempt": 3,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 44.0
+  },
+  {
+   "id": "feature-lru-cache",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 79.0
+  },
+  {
+   "id": "expr_calculator",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 251.0
+  },
+  {
+   "id": "expr_calculator",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 267.0
+  },
+  {
+   "id": "expr_calculator",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 293.0
+  },
+  {
+   "id": "feature-lru-cache",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 47.0
+  },
+  {
+   "id": "feature-lru-cache",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 61.0
+  },
+  {
+   "id": "feature-shop-discount-codes",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 81.0
+  },
+  {
+   "id": "feature-shop-discount-codes",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 93.0
+  },
+  {
+   "id": "feature-shop-discount-codes",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 102.0
+  },
+  {
+   "id": "feature-wordfreq-flags",
+   "category": "feature",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 124.0
+  },
+  {
+   "id": "feature-slugify",
+   "category": "feature",
+   "difficulty": "easy",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 146.0
+  },
+  {
+   "id": "feature-slugify",
+   "category": "feature",
+   "difficulty": "easy",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 224.0
+  },
+  {
+   "id": "find_jwt_leeway",
+   "category": "navigation",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 39.0
+  },
+  {
+   "id": "feature-slugify",
+   "category": "feature",
+   "difficulty": "easy",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 242.0
+  },
+  {
+   "id": "feature-wordfreq-flags",
+   "category": "feature",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 110.0
+  },
+  {
+   "id": "find_jwt_leeway",
+   "category": "navigation",
+   "difficulty": "medium",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 55.0
+  },
+  {
+   "id": "find_jwt_leeway",
+   "category": "navigation",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 62.0
+  },
+  {
+   "id": "feature-wordfreq-flags",
+   "category": "feature",
+   "difficulty": "medium",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 133.0
+  },
+  {
+   "id": "hard-bug-hunt-from-logs",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 87.0
+  },
+  {
+   "id": "hard-bug-hunt-from-logs",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 75.0
+  },
+  {
+   "id": "hard-bug-hunt-from-logs",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 76.0
+  },
+  {
+   "id": "hard-async-crawler",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 337.0
+  },
+  {
+   "id": "hard-concurrency-bank",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 370.0
+  },
+  {
+   "id": "hard-async-crawler",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 332.0
+  },
+  {
+   "id": "hard-async-crawler",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 292.0
+  },
+  {
+   "id": "hard-concurrency-bank",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 707.0
+  },
+  {
+   "id": "hard-concurrency-bank",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 299.0
+  },
+  {
+   "id": "hard-fix-flaky-tests",
+   "category": "testing",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 193.0
+  },
+  {
+   "id": "hard-fix-flaky-tests",
+   "category": "testing",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 78.0
+  },
+  {
+   "id": "hard-fix-flaky-tests",
+   "category": "testing",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 101.0
+  },
+  {
+   "id": "hard-js-event-emitter",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 454.0
+  },
+  {
+   "id": "hard-js-event-emitter",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 120.0
+  },
+  {
+   "id": "hard-dependency-resolver",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "infra_error",
+   "passed": false,
+   "seconds": 434.0
+  },
+  {
+   "id": "hard-dependency-resolver",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "infra_error",
+   "passed": false,
+   "seconds": 415.0
+  },
+  {
+   "id": "hard-multi-file-feature-cli-todo",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 145.0
+  },
+  {
+   "id": "hard-multi-file-feature-cli-todo",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 186.0
+  },
+  {
+   "id": "hard-multi-file-feature-cli-todo",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 144.0
+  },
+  {
+   "id": "hard-dependency-resolver",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "infra_error",
+   "passed": false,
+   "seconds": 420.0
+  },
+  {
+   "id": "hard-js-event-emitter",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 480.0
+  },
+  {
+   "id": "hard-perf-dedupe",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 83.0
+  },
+  {
+   "id": "hard-perf-dedupe",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 192.0
+  }
+ ],
+ "label": "bash-only"
+}

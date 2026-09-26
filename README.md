@@ -271,6 +271,21 @@ swebench/              SWE-bench Verified pilot scripts (VM setup, run, evaluate
 
 ## Evals
 
+**Headline (26-task suite, 572 runs, full table in [`evals/RESULTS.md`](evals/RESULTS.md)):**
+
+| model / variant | pass rate (valid runs) | median time |
+|---|---|---|
+| gemini-3.7-flash (full Forge) | **97%** (99 runs) | 92s |
+| gemini-3.7-flash, **bash-only** ablation | 90% (50 runs) | 140s |
+| gemini-3.7-flash, no sub-agents / no todo | 95% (62 runs) | 114s |
+| gemini-3.5-flash | 96% | 73s |
+| gemini-3.6-flash | 94% | 82s |
+| gemini-3.1-pro-preview | 92% | 234s |
+| gemini-2.5-flash (older generation) | 38% | 26s |
+
+Ablation: Forge's dedicated tools add ~7 points over a shell-only agent and cut median time by ~35%.
+"Valid" excludes runs killed by API/network errors (reported separately). Some final batches were
+stopped early and rebuilt from logs (`evals/partial_from_logs.py`, marked `partial`).
 `evals/` is a real, working eval suite: 26 self-contained coding tasks under `evals/tasks/<id>/`
 (bugfixes, small features, and a "hard" set — multi-file refactors, concurrency, parsers, flaky
 tests), each with a starter `repo/` and a hidden `check.py` grading script the agent never sees.

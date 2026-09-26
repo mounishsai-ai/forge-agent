@@ -1,0 +1,620 @@
+{
+ "model": "gemini-3.7-flash",
+ "partial": true,
+ "source_log": "q_abl2.log",
+ "results": [
+  {
+   "id": "bugfix-average-score-crash",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 135.0
+  },
+  {
+   "id": "bugfix-average-score-crash",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 136.0
+  },
+  {
+   "id": "bugfix-average-score-crash",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 144.0
+  },
+  {
+   "id": "bugfix-pagination-off-by-one",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 25.0
+  },
+  {
+   "id": "bugfix-inventory-key-mismatch",
+   "category": "bugfix",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 142.0
+  },
+  {
+   "id": "bugfix-inventory-key-mismatch",
+   "category": "bugfix",
+   "difficulty": "medium",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 71.0
+  },
+  {
+   "id": "bugfix-pagination-off-by-one",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 36.0
+  },
+  {
+   "id": "bugfix-pagination-off-by-one",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 44.0
+  },
+  {
+   "id": "bugfix-inventory-key-mismatch",
+   "category": "bugfix",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 84.0
+  },
+  {
+   "id": "extract_helper",
+   "category": "refactor",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 83.0
+  },
+  {
+   "id": "extract_helper",
+   "category": "refactor",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 46.0
+  },
+  {
+   "id": "extract_helper",
+   "category": "refactor",
+   "difficulty": "medium",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 42.0
+  },
+  {
+   "id": "expr_calculator",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 224.0
+  },
+  {
+   "id": "feature-lru-cache",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 66.0
+  },
+  {
+   "id": "feature-lru-cache",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 47.0
+  },
+  {
+   "id": "expr_calculator",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 288.0
+  },
+  {
+   "id": "feature-lru-cache",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 49.0
+  },
+  {
+   "id": "expr_calculator",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 226.0
+  },
+  {
+   "id": "feature-shop-discount-codes",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 126.0
+  },
+  {
+   "id": "feature-slugify",
+   "category": "feature",
+   "difficulty": "easy",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 87.0
+  },
+  {
+   "id": "feature-slugify",
+   "category": "feature",
+   "difficulty": "easy",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 74.0
+  },
+  {
+   "id": "feature-slugify",
+   "category": "feature",
+   "difficulty": "easy",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 108.0
+  },
+  {
+   "id": "feature-wordfreq-flags",
+   "category": "feature",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 154.0
+  },
+  {
+   "id": "feature-shop-discount-codes",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 383.0
+  },
+  {
+   "id": "feature-shop-discount-codes",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 71.0
+  },
+  {
+   "id": "feature-wordfreq-flags",
+   "category": "feature",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 103.0
+  },
+  {
+   "id": "find_jwt_leeway",
+   "category": "navigation",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 47.0
+  },
+  {
+   "id": "find_jwt_leeway",
+   "category": "navigation",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 51.0
+  },
+  {
+   "id": "find_jwt_leeway",
+   "category": "navigation",
+   "difficulty": "medium",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 36.0
+  },
+  {
+   "id": "feature-wordfreq-flags",
+   "category": "feature",
+   "difficulty": "medium",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 96.0
+  },
+  {
+   "id": "hard-bug-hunt-from-logs",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 78.0
+  },
+  {
+   "id": "hard-async-crawler",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 133.0
+  },
+  {
+   "id": "hard-async-crawler",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 126.0
+  },
+  {
+   "id": "hard-bug-hunt-from-logs",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 73.0
+  },
+  {
+   "id": "hard-bug-hunt-from-logs",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 89.0
+  },
+  {
+   "id": "hard-concurrency-bank",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 227.0
+  },
+  {
+   "id": "hard-concurrency-bank",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 186.0
+  },
+  {
+   "id": "hard-concurrency-bank",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 157.0
+  },
+  {
+   "id": "hard-async-crawler",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 162.0
+  },
+  {
+   "id": "hard-fix-flaky-tests",
+   "category": "testing",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 69.0
+  },
+  {
+   "id": "hard-fix-flaky-tests",
+   "category": "testing",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 86.0
+  },
+  {
+   "id": "hard-fix-flaky-tests",
+   "category": "testing",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 93.0
+  },
+  {
+   "id": "hard-js-event-emitter",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 82.0
+  },
+  {
+   "id": "hard-js-event-emitter",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 95.0
+  },
+  {
+   "id": "hard-js-event-emitter",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 157.0
+  },
+  {
+   "id": "hard-multi-file-feature-cli-todo",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 120.0
+  },
+  {
+   "id": "hard-multi-file-feature-cli-todo",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 109.0
+  },
+  {
+   "id": "hard-multi-file-feature-cli-todo",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 226.0
+  },
+  {
+   "id": "hard-dependency-resolver",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "infra_error",
+   "passed": false,
+   "seconds": 398.0
+  },
+  {
+   "id": "hard-dependency-resolver",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "infra_error",
+   "passed": false,
+   "seconds": 381.0
+  },
+  {
+   "id": "hard-dependency-resolver",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "infra_error",
+   "passed": false,
+   "seconds": 433.0
+  },
+  {
+   "id": "hard-perf-dedupe",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 115.0
+  },
+  {
+   "id": "hard-perf-dedupe",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 114.0
+  },
+  {
+   "id": "hard-perf-dedupe",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 67.0
+  },
+  {
+   "id": "hard-rate-limiter",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 174.0
+  },
+  {
+   "id": "hard-rate-limiter",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 142.0
+  },
+  {
+   "id": "hard-rate-limiter",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 104.0
+  },
+  {
+   "id": "hard-refactor-god-class",
+   "category": "refactor",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 227.0
+  },
+  {
+   "id": "hard-refactor-god-class",
+   "category": "refactor",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 145.0
+  },
+  {
+   "id": "hard-parser-ini-roundtrip",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "infra_error",
+   "passed": false,
+   "seconds": 377.0
+  },
+  {
+   "id": "hard-parser-ini-roundtrip",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "infra_error",
+   "passed": false,
+   "seconds": 417.0
+  },
+  {
+   "id": "hard-refactor-god-class",
+   "category": "refactor",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 170.0
+  },
+  {
+   "id": "hard-sqlite-migration",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 140.0
+  },
+  {
+   "id": "hard-sqlite-migration",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 149.0
+  },
+  {
+   "id": "js_deep_merge",
+   "category": "bugfix",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 121.0
+  },
+  {
+   "id": "js_deep_merge",
+   "category": "bugfix",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 153.0
+  },
+  {
+   "id": "hard-parser-ini-roundtrip",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "infra_error",
+   "passed": false,
+   "seconds": 705.0
+  },
+  {
+   "id": "hard-sqlite-migration",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 3,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 291.0
+  }
+ ],
+ "label": "no-subagents-no-todo"
+}

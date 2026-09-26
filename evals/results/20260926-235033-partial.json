@@ -1,0 +1,232 @@
+{
+ "model": "gemini-2.5-flash",
+ "partial": true,
+ "source_log": "benchB_3.log",
+ "results": [
+  {
+   "id": "bugfix-inventory-key-mismatch",
+   "category": "bugfix",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 18.0
+  },
+  {
+   "id": "bugfix-inventory-key-mismatch",
+   "category": "bugfix",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 19.0
+  },
+  {
+   "id": "bugfix-average-score-crash",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 25.0
+  },
+  {
+   "id": "bugfix-pagination-off-by-one",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 87.0
+  },
+  {
+   "id": "extract_helper",
+   "category": "refactor",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 7.0
+  },
+  {
+   "id": "bugfix-pagination-off-by-one",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 25.0
+  },
+  {
+   "id": "expr_calculator",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 27.0
+  },
+  {
+   "id": "feature-lru-cache",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 122.0
+  },
+  {
+   "id": "feature-shop-discount-codes",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 19.0
+  },
+  {
+   "id": "feature-slugify",
+   "category": "feature",
+   "difficulty": "easy",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 11.0
+  },
+  {
+   "id": "feature-lru-cache",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 10.0
+  },
+  {
+   "id": "feature-slugify",
+   "category": "feature",
+   "difficulty": "easy",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 26.0
+  },
+  {
+   "id": "extract_helper",
+   "category": "refactor",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 17.0
+  },
+  {
+   "id": "feature-shop-discount-codes",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 80.0
+  },
+  {
+   "id": "expr_calculator",
+   "category": "feature",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "infra_error",
+   "passed": false,
+   "seconds": 72.0
+  },
+  {
+   "id": "bugfix-average-score-crash",
+   "category": "bugfix",
+   "difficulty": "easy",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 83.0
+  },
+  {
+   "id": "find_jwt_leeway",
+   "category": "navigation",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 55.0
+  },
+  {
+   "id": "find_jwt_leeway",
+   "category": "navigation",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 23.0
+  },
+  {
+   "id": "hard-bug-hunt-from-logs",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 10.0
+  },
+  {
+   "id": "hard-async-crawler",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 20.0
+  },
+  {
+   "id": "hard-async-crawler",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 2,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 88.0
+  },
+  {
+   "id": "feature-wordfreq-flags",
+   "category": "feature",
+   "difficulty": "medium",
+   "attempt": 2,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 18.0
+  },
+  {
+   "id": "feature-wordfreq-flags",
+   "category": "feature",
+   "difficulty": "medium",
+   "attempt": 1,
+   "outcome": "pass",
+   "passed": true,
+   "seconds": 92.0
+  },
+  {
+   "id": "hard-fix-flaky-tests",
+   "category": "testing",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 11.0
+  },
+  {
+   "id": "hard-concurrency-bank",
+   "category": "bugfix",
+   "difficulty": "hard",
+   "attempt": 1,
+   "outcome": "fail",
+   "passed": false,
+   "seconds": 23.0
+  }
+ ]
+}
