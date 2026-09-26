@@ -267,11 +267,11 @@ failures that say nothing about the agent's coding ability, `run.py` classifies 
 `pass`/`fail`/`infra_error` and auto-retries the `infra_error` ones with backoff, so a bad afternoon of
 Vertex 504s doesn't get counted as a regression. `evals/aggregate.py` pools every results file into
 `evals/RESULTS.md` — a per-model comparison table plus a per-task pass-fraction matrix, flagging any
-model with too few valid runs as insufficient data rather than trusting a noisy number. I'd point at
-`evals/RESULTS.md` for the current numbers rather than quote a figure here, since it's still being
-filled in as more runs land. I'd also want to benchmark against SWE-bench Verified eventually — the
-scripts for a pilot exist under `swebench/`, but the VM to actually run it hasn't been created yet, so
-there are no SWE-bench numbers to share.
+model with too few valid runs as insufficient data rather than trusting a noisy number. Results: 97% on the
+26-task suite with gemini-3.7-flash (a bash-only ablation drops to 90% and is 35% slower), and on
+SWE-bench Verified — real GitHub issues, graded by the official harness inside per-instance Docker
+images — Forge resolved 36 of a 50-instance seeded random subset (72%, pass@1), at $0.87 per issue.
+I'd be clear it's a 50-instance subset with one model, not the full 500.
 
 **Q: How does `/undo` work, and what can't it undo?**
 A: `forge/checkpoints.py`. Right before `write_file`/`edit_file` change a file, they snapshot its old

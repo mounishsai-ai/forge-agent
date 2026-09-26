@@ -306,8 +306,7 @@ variance), `--workers` (parallel tasks), `--keep` (keep work dirs for debugging)
 per-model comparison table (pass rate, cost, tokens, time) and a per-task x per-model pass-fraction
 matrix, flagging any model with fewer than 20 valid runs as having insufficient data.
 
-**Numbers are still being finalized** — see [`evals/RESULTS.md`](evals/RESULTS.md) for the current
-comparison table rather than any figure repeated here, since it's regenerated as more runs land.
+The headline table at the top of this section comes from [`evals/RESULTS.md`](evals/RESULTS.md) (final run, 2026-09-26).
 
 ## SWE-bench
 

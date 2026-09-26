@@ -652,12 +652,12 @@ billed at the output rate (`usage.output_tokens + usage.thinking_tokens`).
   not just inside the project directory.
 - **Hooks run through `cmd.exe`-style `shell=True`** on Windows, not the PowerShell used for
   `run_shell`, which is an easy footgun when writing a hook command.
-- **Eval suite exists (26 tasks) but numbers are still being finalized.** `evals/run.py` runs each task
+- **Eval coverage is small-task-heavy.** 26 tasks (572 runs; 3.7-flash 97%, bash-only ablation 90%). `evals/run.py` runs each task
   headlessly, classifies each run as `pass`/`fail`/`infra_error` (transient Vertex/network failures,
   auto-retried with backoff), and `evals/aggregate.py` pools every `evals/results/*.json` batch into
   `evals/RESULTS.md`. `--json` and `--no-fallback` exist specifically to make those runs reproducible
-  and scriptable. What's still missing: a SWE-bench Verified pilot (scripts exist under `swebench/`,
-  but the VM hasn't been created/run yet — see `swebench/README.md`).
+  and scriptable. SWE-bench Verified was run on a 50-instance seeded subset only (36/50 = 72%, one model, pass@1),
+  not the full 500 — see `swebench/results/`.
 - **`--plan` in headless mode can't actually be approved.** `QuietUI.ask_permission` always returns
   `"n"` (see `forge/ui.py`), so every `exit_plan` call in a `forge -p --plan` run is rejected. The
   model isn't forced to keep calling it, though — nothing stops it from just returning ordinary
