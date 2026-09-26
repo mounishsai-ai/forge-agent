@@ -190,6 +190,55 @@ of scope for a from-scratch harness project; the blocklist stops the most catast
 someone might paste in, as a last line of defense, not a security boundary. **It is bypassable by
 design** — see Known Limitations.
 
+### Plan mode (`forge/tools/exit_plan.py` + `Permissions.enter_plan_mode`/`exit_plan_mode`)
+Same idea as Claude Code's plan mode: `/plan` (REPL) or `--plan` (either mode) makes the session
+explore before it acts. Two small pieces cooperate, split by what each already owns:
+- **`Permissions.enter_plan_mode()`** saves `self.mode` into `self._pre_plan_mode` and forces
+  `self.mode = "readonly"` — no new branch needed in `check()`, since `readonly` already denies
+  every `needs_permission=True` call. `exit_plan_mode(approved)` restores the saved mode if
+  `approved`, or does nothing (staying in plan mode) if not — it's a no-op if plan mode was never
+  entered, so calling it defensively is always safe.
+- **The model needs to be told**, not just gated: `exit_plan.enter_plan_mode(agent)` **prepends** a
+  fixed `PLAN_MODE_INSTRUCTION` onto `agent.system_prompt` ("explore read-only, then call
+  `exit_plan` with a concrete plan"), and `leave_plan_mode`/an approved `exit_plan` call strips
+  that exact substring back out. **Why the system prompt and not e.g. prefixing the next message
+  in `cli.repl`** (the other option that needs no change to `agent.py`): `llm.py` re-sends
+  `system_prompt` on every model call, so the instruction (a) survives `/compact`, which rewrites
+  `agent.history` wholesale — anything injected only into a past user message would be silently
+  summarized away or dropped the moment the conversation compacts — and (b) never needs `cli.py`
+  to remember to re-inject it on every later turn of the same conversation. `Agent._ask_model`
+  already reads `self.system_prompt` fresh each call, so no line in `agent.py` had to change.
+  **Why prepended, not appended:** `subagent.make_task_tool` builds a sub-agent's prompt as
+  `SUBAGENT_PROMPT + parent.system_prompt.partition("\n\n")[2]` — it drops just the parent's first
+  paragraph and keeps the rest. `PLAN_MODE_INSTRUCTION` has no blank line of its own, so
+  prepending it (plus one `"\n\n"`) makes it exactly that first paragraph, and the same slice drops
+  it along with the original one — an appended note would instead have landed in the kept "rest"
+  and leaked "call exit_plan" into a child agent that has no such tool. `subagent.py` was out of
+  scope for this change, so this had to be solved from the shape of the string alone.
+- **The `exit_plan` tool** is built by `make_exit_plan_tool(agent)`, the same factory shape as
+  `subagent.make_task_tool(parent)`, because it needs to reach `agent.permissions`, `agent.ui` and
+  `agent.system_prompt` — a plain module-level `Tool` (whose `run` only sees the model's own JSON
+  arguments) can't. It has `needs_permission=False` deliberately: plan mode sets `self.mode =
+  "readonly"`, which would otherwise block `exit_plan` from ever running (readonly denies every
+  `needs_permission=True` tool) — `exit_plan` has its **own** approval flow instead, reusing
+  `ui.ask_permission("exit_plan", {"plan": plan})` (`y`/`a` = approve, `n` = reject) rather than
+  adding a new UI method. That same `needs_permission=False`, though, would also make
+  `Agent._parallel_ok` treat `exit_plan` as safe to batch into a `ThreadPoolExecutor` alongside
+  other read-only calls in the same model turn — but its `run()` calls back into `agent.ui`
+  (`assistant_text`/`ask_permission`, and on rejection a blocking console read), which must stay on
+  the main thread. The factory fixes this without touching `agent.py` by shadowing the instance's
+  own `SEQUENTIAL_ONLY` set: `agent.SEQUENTIAL_ONLY = agent.SEQUENTIAL_ONLY | {"exit_plan"}` —
+  `|` creates a new set, so this never mutates the `Agent` class attribute other instances share.
+  On rejection, `exit_plan` also tries to collect real feedback (not just "no") via
+  `console.input`, but only when `agent.ui.streams` is `True` (`ConsoleUI`; `QuietUI`/test fakes/a
+  sub-agent's `QuietUI` are all `False`) — there's no human at a terminal to answer otherwise, and
+  reading from a real, unpatched `console.input` in that case would just hang.
+  `cli.build_agent` registers `exit_plan` unconditionally, like `task`, since `/plan` can turn plan
+  mode on mid-session and the tool must already exist for the model to call it; calling it while
+  `agent.permissions.plan_mode` is `False` raises `ToolError`. `cli.py`'s `/mode` command also
+  checks `agent.permissions.plan_mode` and refuses to change modes while it's active, so a manual
+  `/mode auto` can't silently undo the read-only guarantee mid-plan.
+
 ### `forge/hooks.py` — user-defined shell hooks
 Loaded once from `.forge/hooks.json` at agent construction (`Hooks.load`). `pre_tool(name, args)` runs
 after the permission check and can **veto** a call by exiting non-zero (its stdout+stderr becomes the
@@ -478,8 +527,10 @@ report. Thinking tokens are billed at the output rate (`usage.output_tokens + us
 1. User runs `forge -p "add a docstring to foo.py"` or types a line in the REPL.
 2. `cli.main` parses args; either `run_headless(args)` or `repl(args)` is called.
 3. `build_agent(args, ui)` constructs `GeminiLLM(model=args.model, fallbacks=...)`, `Permissions(mode)`,
-   `build_system_prompt()`, `Hooks.load()`, wraps them in `Agent(...)`, and attaches the `task` tool
-   from `make_task_tool(agent)` unless `--no-subagents`.
+   `build_system_prompt()`, `Hooks.load()`, wraps them in `Agent(...)`, attaches the `task` tool
+   from `make_task_tool(agent)` unless `--no-subagents`, and always attaches `exit_plan` (from
+   `exit_plan.make_exit_plan_tool(agent)`); if `--plan` was passed, `exit_plan.enter_plan_mode(agent)`
+   runs right after, forcing read-only mode before the first prompt is ever sent.
 4. `agent.run(user_text)` is called. The user's text is appended to `self.history` immediately.
 5. The turn loop begins (up to `max_turns` iterations):
    a. `context.maybe_compact(self)` checks the previous call's token count and summarizes history first
@@ -544,3 +595,10 @@ report. Thinking tokens are billed at the output rate (`usage.output_tokens + us
   `run_shell`, which is an easy footgun when writing a hook command.
 - **No formal eval suite yet** — `evals/` exists as a placeholder; `--json` and `--no-fallback` were
   added specifically to support running reproducible headless evals against it.
+- **`--plan` in headless mode can't actually be approved.** `QuietUI.ask_permission` always returns
+  `"n"` (see `forge/ui.py`), so every `exit_plan` call in a `forge -p --plan` run is rejected. The
+  model isn't forced to keep calling it, though — nothing stops it from just returning ordinary
+  text once it gives up — so the run doesn't necessarily burn all the way to `max_turns`; it just
+  can never leave plan mode, so no edit/write/shell call in that run will ever be allowed to
+  execute, no matter how many times it tries or what `--mode`/`--yes` said. `--plan` is really an
+  interactive-REPL feature; headless mode accepts the flag mainly for consistency with the REPL.

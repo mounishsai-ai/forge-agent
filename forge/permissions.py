@@ -29,6 +29,27 @@ class Permissions:
         assert mode in ("ask", "auto", "readonly")
         self.mode = mode
         self.always_allowed: set[str] = set()   # tool names the user said "always" to this session
+        self.plan_mode = False        # True between /plan (or --plan) and an approved exit_plan call
+        self._pre_plan_mode: str | None = None   # self.mode as it was before plan mode, to restore on exit
+
+    def enter_plan_mode(self) -> None:
+        """Force read-only and remember the mode to go back to. Idempotent: calling it again
+        while already in plan mode must not overwrite the saved pre-plan mode with "readonly"."""
+        if self.plan_mode:
+            return
+        self._pre_plan_mode = self.mode
+        self.plan_mode = True
+        self.mode = "readonly"   # `check()` below needs no new branch: readonly already denies writes/shell
+
+    def exit_plan_mode(self, approved: bool) -> None:
+        """Called by the exit_plan tool (forge/tools/exit_plan.py) once the user has answered,
+        and by cli.py's `/plan` toggle-off (always with approved=True: leaving manually needs no
+        plan). On rejection we deliberately stay in plan mode/readonly so the model keeps exploring."""
+        if not self.plan_mode or not approved:
+            return
+        self.plan_mode = False
+        self.mode = self._pre_plan_mode or "ask"
+        self._pre_plan_mode = None
 
     def check(self, tool: Tool, args: dict, ui) -> tuple[bool, str]:
         """Returns (allowed, reason). The reason goes back to the model if denied."""

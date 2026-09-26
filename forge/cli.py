@@ -20,7 +20,7 @@ from forge.llm import GeminiLLM
 from forge.permissions import Permissions
 from forge.prompts import build_system_prompt
 from forge.subagent import make_task_tool
-from forge.tools import ALL_TOOLS, base, todo
+from forge.tools import ALL_TOOLS, base, exit_plan, todo
 from forge.ui import ConsoleUI, QuietUI, console
 
 HELP = """Commands:
@@ -34,6 +34,7 @@ HELP = """Commands:
   /tools           list tools
   /todo            show the current task list
   /mode [ask|auto|readonly]  show or change permission mode
+  /plan            toggle plan mode (read-only exploration; model proposes a plan for approval)
   /sessions        list saved sessions
   /mcp             list MCP servers and their tools
   /exit            quit (session is auto-saved)"""
@@ -47,11 +48,17 @@ def build_agent(args, ui) -> Agent:
     if not args.no_subagents:
         task_tool = make_task_tool(agent)
         agent.tools[task_tool.name] = task_tool
+    # exit_plan is registered unconditionally (like `task` above), not only under --plan: /plan can
+    # switch plan mode on mid-session, and the tool needs to already exist for the model to call.
+    plan_tool = exit_plan.make_exit_plan_tool(agent)
+    agent.tools[plan_tool.name] = plan_tool
+    if getattr(args, "plan", False):
+        exit_plan.enter_plan_mode(agent)
     mcp_client.attach(agent)   # tools from .forge/mcp.json servers (mcp__<server>__<tool>)
     return agent
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="forge", description="Forge: an AI coding agent in your terminal.")
     p.add_argument("-p", "--prompt", help="run one prompt headlessly and exit")
     p.add_argument("--model", default=config.MODEL)
@@ -63,8 +70,14 @@ def main() -> None:
     p.add_argument("--verbose", action="store_true", help="with -p: show tool calls")
     p.add_argument("--no-subagents", action="store_true")
     p.add_argument("--no-fallback", action="store_true", help="never switch models (for reproducible evals)")
+    p.add_argument("--plan", action="store_true",
+                    help="start in plan mode: read-only until the model's plan is approved (see /plan)")
     p.add_argument("--version", action="version", version=f"forge {__version__}")
-    args = p.parse_args()
+    return p
+
+
+def main() -> None:
+    args = build_parser().parse_args()
 
     if args.prompt:
         sys.exit(run_headless(args))
@@ -103,9 +116,12 @@ def repl(args) -> None:
             ui.info(f"Resumed session {sid} ({len(agent.history)} messages).")
         except FileNotFoundError as e:
             ui.error(str(e))
+        except Exception as e:   # corrupt / hand-edited session file: start fresh instead of crashing
+            ui.error(f"Could not load session ({type(e).__name__}: {e}). Starting a new one.")
     checkpoints.set_session(sid)   # on --resume this reloads saved checkpoints, so /undo still works
 
-    console.print(f"[bold]Forge[/] v{__version__}  [dim]{agent.llm.model} | mode: {agent.permissions.mode} | "
+    mode_label = f"{agent.permissions.mode} (plan)" if agent.permissions.plan_mode else agent.permissions.mode
+    console.print(f"[bold]Forge[/] v{__version__}  [dim]{agent.llm.model} | mode: {mode_label} | "
                   f"{os.getcwd()}[/]\n[dim]Type /help for commands. Ctrl+C interrupts, /exit quits.[/]")
     while True:
         try:
@@ -162,9 +178,19 @@ def handle_command(text: str, agent: Agent, ui) -> str | None:
     elif cmd == "/todo":
         console.print(todo.render())
     elif cmd == "/mode":
-        if arg in ("ask", "auto", "readonly"):
-            agent.permissions.mode = arg
-        ui.info(f"Permission mode: {agent.permissions.mode}")
+        if agent.permissions.plan_mode:
+            ui.error("In plan mode: use /plan to exit before changing the permission mode.")
+        else:
+            if arg in ("ask", "auto", "readonly"):
+                agent.permissions.mode = arg
+            ui.info(f"Permission mode: {agent.permissions.mode}")
+    elif cmd == "/plan":
+        if agent.permissions.plan_mode:
+            exit_plan.leave_plan_mode(agent)
+            ui.info(f"Plan mode off. Permission mode: {agent.permissions.mode}")
+        else:
+            exit_plan.enter_plan_mode(agent)
+            ui.info("Plan mode on: read-only until the model proposes a plan and you approve it.")
     elif cmd == "/sessions":
         ui.info("\n".join(session.list_sessions()) or "No sessions.")
     elif cmd == "/undo":

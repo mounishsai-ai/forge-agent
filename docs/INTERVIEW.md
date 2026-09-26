@@ -49,6 +49,41 @@ bypasses: `rm -rf /*` and `rm -r -f /` beat the first version (I fixed that patt
 `find / -delete` or a Python one-liner calling `shutil.rmtree` still get past any regex. A real
 production system would need an actual sandboxed execution environment on top of this.
 
+**Q: What's "plan mode," and how did you add it without touching `agent.py`?**
+A: Same idea as Claude Code's plan mode: `/plan` or `--plan` puts Forge into read-only exploration —
+the model reads code, but every edit/write/shell call is denied — until it calls `exit_plan(plan)`
+with a concrete step-by-step plan, which I show the user for a y/n/always approval. Approved: the
+previous permission mode is restored and the model proceeds; rejected: Forge stays in plan mode so
+the model can revise and call `exit_plan` again, this time with the user's actual feedback attached.
+I deliberately avoided touching `agent.py`: keeping the loop generic (it doesn't know "plan mode"
+exists at all) is the same discipline the checkpoints feature already follows — `cli.repl` calls
+`checkpoints.begin_turn(text)` before `agent.run(text)` instead of teaching the loop about turns —
+and it means this feature can't have broken anything the agent-loop tests already cover. Two things
+had to happen without that edit: forcing read-only, which needed no new code inside `check()` at
+all, since `Permissions.enter_plan_mode()` just saves `self.mode` and sets it to `"readonly"` — a
+mode `check()` already enforces; and telling the *model* to behave differently, which I did by
+**prepending** a fixed instruction onto `agent.system_prompt` (over prefixing it onto the next user
+message in `cli.repl`, the other option that also avoids `agent.py`). System prompt wins because
+`llm.py` re-sends it on every single call, so it survives `/compact` — which rewrites `agent.history`
+wholesale, so anything injected only into a past user message would be silently summarized away —
+and it never needs `cli.py` to remember to re-inject it on later turns. `Agent._ask_model` already
+reads `self.system_prompt` fresh each call, so zero lines of `agent.py` changed. Prepending
+specifically (not appending) mattered once I noticed `subagent.make_task_tool` builds a sub-agent's
+prompt by keeping everything *after* the parent's first paragraph (`partition("\n\n")[2]`) — an
+appended note would've leaked "call exit_plan" into a child that has no such tool; prepending it as
+its own first paragraph means that same slice drops it along with the original role paragraph.
+The `exit_plan` tool itself is built by a factory, `make_exit_plan_tool(agent)` — same shape as
+`subagent.make_task_tool(parent)` — because it needs to reach `agent.permissions`, `agent.ui`, and
+`agent.system_prompt`, which a plain module-level tool (whose `run` only receives the model's own
+arguments) can't. It's registered with `needs_permission=False` on purpose: plan mode's `mode =
+"readonly"` would otherwise block `exit_plan` from ever being called, so it has its own approval step
+instead of going through `Permissions.check`. That same factory also does `agent.SEQUENTIAL_ONLY =
+agent.SEQUENTIAL_ONLY | {"exit_plan"}` — a shadowing instance attribute, not a mutation of the class
+set — because `needs_permission=False` would otherwise make `Agent._parallel_ok` treat it as safe to
+run in a worker thread alongside other read-only calls in the same turn, when its `run()` actually
+calls back into `agent.ui` and (on rejection) a blocking console read, both of which have to stay on
+the main thread.
+
 **Q: How do you handle the context window filling up?**
 A: Three layers, in `forge/context.py` and `forge/tools/base.py`. First, tool output is truncated at
 the source — `truncate()` keeps head and tail up to `TOOL_OUTPUT_LIMIT` (20,000 characters) so one huge

@@ -79,7 +79,8 @@ forge --resume 20260926-140501          # continue a specific session by id
 | `/model [name]` | Show or switch the model for the rest of the session |
 | `/tools` | List available tools |
 | `/todo` | Show the current task list |
-| `/mode [ask\|auto\|readonly]` | Show or change the permission mode |
+| `/mode [ask\|auto\|readonly]` | Show or change the permission mode (refused while in plan mode) |
+| `/plan` | Toggle plan mode: read-only until the model proposes a plan via `exit_plan` and you approve it |
 | `/sessions` | List saved sessions |
 | `/exit` | Quit (session is auto-saved) |
 | `/<name> [args]` | Run a custom command from `.forge/commands/<name>.md` (see Custom slash commands below) |
@@ -101,7 +102,21 @@ Other tunables are constants in `forge/config.py` you edit directly rather than 
 `TOOL_OUTPUT_LIMIT` (20,000 characters), `SHELL_TIMEOUT` (120s), `MEMORY_FILES`.
 
 Relevant CLI flags: `--model`, `--mode {ask,auto,readonly}`, `-y`/`--yes`, `--max-turns`,
-`--no-subagents`, `--no-fallback` (disable model fallback for reproducible runs), `--json`, `--verbose`.
+`--no-subagents`, `--no-fallback` (disable model fallback for reproducible runs), `--json`, `--verbose`,
+`--plan` (start in plan mode — see Plan mode below).
+
+## Plan mode
+
+`/plan` (REPL) or `--plan` (either mode) puts Forge into a read-only exploration mode, the same idea
+as Claude Code's plan mode: the permission mode is forced to `readonly` (writes/shell are denied
+regardless of `--mode`/`--yes`) and the model is told, via a standing addition to its system prompt,
+to explore with read-only tools and then call the `exit_plan` tool with a concrete step-by-step plan.
+`exit_plan` shows that plan to the user and asks for approval (y/n/a). Approved: plan mode ends, the
+previous permission mode is restored, and the model proceeds. Rejected: Forge stays in plan mode so
+the model can revise the plan and call `exit_plan` again. `/mode` is refused while plan mode is active
+(exit it with `/plan` first) so a manual mode switch can't silently undo the read-only guarantee.
+See `forge/tools/exit_plan.py` and `docs/ARCHITECTURE.md` for how the instruction is injected without
+touching `forge/agent.py`.
 
 ## Hooks
 
@@ -224,6 +239,7 @@ forge/
     web_fetch.py        fetch an http(s) URL as text, with an SSRF guard   (needs permission)
     todo.py             the model's own task list
     skill.py            the `skill` tool: load one installed skill's full SKILL.md body
+    exit_plan.py        plan mode: system-prompt instruction + the `exit_plan` tool (see Plan mode)
 docs/
   ARCHITECTURE.md     module-by-module design + lifecycle walkthrough
   INTERVIEW.md         interview Q&A grounded in this code
