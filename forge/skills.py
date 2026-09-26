@@ -65,7 +65,9 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
         if sep:
             meta[key.strip()] = value.strip().strip('"').strip("'")
         i += 1
-    body = "\n".join(lines[i + 1:]).strip()
+    if i == len(lines):   # no closing "---": not frontmatter, don't swallow the whole file as meta
+        return {}, text.strip()
+    body ="\n".join(lines[i + 1:]).strip()
     return meta, body
 
 

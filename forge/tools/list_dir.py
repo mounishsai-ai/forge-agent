@@ -12,7 +12,13 @@ def list_dir(path: str = ".") -> str:
         if name in IGNORED_DIRS:
             continue
         full = os.path.join(p, name)
-        entries.append(f"{name}/" if os.path.isdir(full) else f"{name}  ({os.path.getsize(full)} bytes)")
+        if os.path.isdir(full):
+            entries.append(f"{name}/")
+        else:
+            try:
+                entries.append(f"{name}  ({os.path.getsize(full)} bytes)")
+            except OSError:   # broken symlink / locked file: still list it
+                entries.append(name)
     return "\n".join(entries) or "(empty directory)"
 
 

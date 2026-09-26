@@ -22,12 +22,21 @@ def grep(pattern: str, path: str = ".", file_glob: str | None = None, ignore_cas
             with open(f, encoding="utf-8") as fh:
                 for n, line in enumerate(fh, 1):
                     if rx.search(line):
-                        out.append(f"{os.path.relpath(f)}:{n}: {line.rstrip()[:300]}")
+                        out.append(f"{_display(f)}:{n}: {line.rstrip()[:300]}")
                         if len(out) >= MAX_MATCHES:
                             return truncate("\n".join(out) + f"\n[stopped at {MAX_MATCHES} matches]")
         except (UnicodeDecodeError, OSError):
             continue  # binary or unreadable file
     return truncate("\n".join(out)) if out else "No matches."
+
+
+def _display(path: str) -> str:
+    """Path relative to cwd when possible. On Windows relpath raises ValueError for a file on
+    another drive (e.g. searching D:\\ from C:\\), which used to fail the whole grep."""
+    try:
+        return os.path.relpath(path)
+    except ValueError:
+        return path
 
 
 def _walk(root):

@@ -22,8 +22,12 @@ def save(session_id: str, agent) -> str:
         # model_dump(mode="json") base64-encodes bytes such as Gemini's thought signatures.
         "history": [c.model_dump(mode="json", exclude_none=True) for c in agent.history],
     }
-    with open(path, "w", encoding="utf-8") as f:
+    # Write a temp file, then swap it in: a crash / Ctrl+C mid-write (it is saved after every
+    # turn) must not leave a half-written JSON file that breaks --resume.
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f)
+    os.replace(tmp, path)
     return path
 
 

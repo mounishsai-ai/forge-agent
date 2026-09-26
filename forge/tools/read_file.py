@@ -10,6 +10,7 @@ def read_file(path: str, offset: int = 1, limit: int = 2000) -> str:
     with open(p, encoding="utf-8", errors="replace") as f:
         lines = f.readlines()
     files_read.add(p)
+    offset, limit = int(offset), int(limit)   # the model may send 10.0; slicing needs ints
     start = max(offset, 1) - 1
     chunk = lines[start:start + limit]
     # Line numbers help the model reference exact locations.

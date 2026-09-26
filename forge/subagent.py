@@ -18,12 +18,21 @@ def make_task_tool(parent) -> Tool:
     def task(description: str) -> str:
         from forge.agent import Agent   # imported here to avoid a circular import
 
+        # Swap the parent's first paragraph (its "You are Forge..." role) for the sub-agent role.
+        # partition, not split(...)[1]: a prompt without a blank line would raise IndexError.
+        rest = parent.system_prompt.partition("\n\n")[2]
         child = Agent(llm=parent.llm, ui=QuietUI(verbose=True), permissions=Permissions("readonly"),
-                      system_prompt=SUBAGENT_PROMPT + "\n\n" + parent.system_prompt.split("\n\n", 1)[1],
+                      system_prompt=SUBAGENT_PROMPT + ("\n\n" + rest if rest else ""),
                       tools=READ_ONLY_TOOLS, max_turns=25)
-        result = child.run(description)
-        parent.usage.add(child.usage)           # the sub-agent's tokens count toward the session cost
-        parent.tool_calls_made += child.tool_calls_made
+        try:
+            result = child.run(description)
+        finally:   # the sub-agent's tokens count toward the session cost, even if it crashed
+            parent.usage.add(child.usage)
+            parent.tool_calls_made += child.tool_calls_made
+        if result == "(interrupted)":
+            # The child's loop swallowed the user's Ctrl+C; pass it on so the PARENT stops too
+            # instead of carrying on as if the sub-agent had reported something.
+            raise KeyboardInterrupt
         return result or "(sub-agent returned nothing)"
 
     return Tool(

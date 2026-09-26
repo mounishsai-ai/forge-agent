@@ -28,7 +28,7 @@ def load_memory() -> str:
     candidates += [os.path.join(os.getcwd(), name) for name in config.MEMORY_FILES]
     for path in candidates:
         if os.path.isfile(path):
-            with open(path, encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8-sig", errors="replace") as f:   # -sig: drop a Windows BOM
                 found.append(f"<memory file=\"{path}\">\n{f.read().strip()}\n</memory>")
     return "\n\n".join(found)
 

@@ -12,11 +12,19 @@ def glob(pattern: str, path: str = ".") -> str:
         if not any(part in IGNORED_DIRS for part in m.split("/")):
             matches.append(m)
     # Most recently modified first: usually the files you care about.
-    matches.sort(key=lambda m: os.path.getmtime(os.path.join(root, m)), reverse=True)
+    matches.sort(key=lambda m: _mtime(os.path.join(root, m)), reverse=True)
     if not matches:
         return "No files matched."
     extra = f"\n... and {len(matches) - 200} more" if len(matches) > 200 else ""
     return "\n".join(matches[:200]) + extra
+
+
+def _mtime(path: str) -> float:
+    """A broken symlink or a file deleted mid-search must not fail the whole glob."""
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return 0.0
 
 
 TOOL = Tool(

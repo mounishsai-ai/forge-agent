@@ -84,6 +84,8 @@ class MCPServer:
         self._lock = threading.Lock()               # guards _pending
         # A SEPARATE lock for writing to stdin. If one lock guarded both, a big write blocked on a
         # full pipe could stop the reader thread from draining stdout -> both sides wait forever.
+        # (Not a complete cure: the reader thread itself writes when it answers a server ping, so a
+        # ping arriving while a huge request is stuck in a full stdin pipe can still deadlock.)
         self._write_lock = threading.Lock()
         self._dead = False                          # set when the server's stdout closes (it exited)
         self._closed = False
@@ -130,35 +132,46 @@ class MCPServer:
 
     def _read_stdout(self) -> None:
         """Background thread: one JSON message per line; route responses to whoever is waiting."""
-        for raw in iter(self.proc.stdout.readline, b""):
-            line = raw.decode("utf-8", errors="replace").strip()   # strip also removes Windows \r
-            if not line:
-                continue
-            try:
-                msg = json.loads(line)
-            except json.JSONDecodeError:
-                self.stderr_tail.append(f"(non-JSON on stdout) {line[:200]}")
-                continue
-            if not isinstance(msg, dict):
-                continue
-            if "method" in msg:                       # the server is talking to US
-                if "id" in msg:                       # ...a request: we must answer it
-                    if msg["method"] == "ping":
-                        self._send({"jsonrpc": "2.0", "id": msg["id"], "result": {}})
-                    else:
-                        self._send({"jsonrpc": "2.0", "id": msg["id"],
-                                    "error": {"code": -32601, "message": "Method not found"}})
-                continue                              # ...a notification (logs, progress): ignore
-            with self._lock:                          # a response to one of our requests
-                waiter = self._pending.get(msg.get("id"))
-            if waiter:
-                waiter["msg"] = msg
-                waiter["event"].set()
-        # EOF: the process exited. Wake up every waiting request with an error.
-        with self._lock:
-            self._dead = True
-            for waiter in self._pending.values():
-                waiter["event"].set()                 # msg stays None -> "server exited"
+        try:
+            for raw in iter(self.proc.stdout.readline, b""):
+                line = raw.decode("utf-8", errors="replace").strip()   # strip also removes Windows \r
+                if not line:
+                    continue
+                try:
+                    msg = json.loads(line)
+                except json.JSONDecodeError:
+                    self.stderr_tail.append(f"(non-JSON on stdout) {line[:200]}")
+                    continue
+                if not isinstance(msg, dict):
+                    continue
+                if "method" in msg:                       # the server is talking to US
+                    if "id" in msg:                       # ...a request: we must answer it
+                        try:
+                            if msg["method"] == "ping":
+                                self._send({"jsonrpc": "2.0", "id": msg["id"], "result": {}})
+                            else:
+                                self._send({"jsonrpc": "2.0", "id": msg["id"],
+                                            "error": {"code": -32601, "message": "Method not found"}})
+                        except MCPError:
+                            pass                          # stdin closed; EOF on stdout follows
+                    continue                              # ...a notification (logs, progress): ignore
+                req_id = msg.get("id")
+                if not isinstance(req_id, (int, str)):    # ids are ours (ints); a list/dict isn't hashable
+                    continue
+                with self._lock:                          # a response to one of our requests
+                    waiter = self._pending.get(req_id)
+                if waiter:
+                    waiter["msg"] = msg
+                    waiter["event"].set()
+        except (OSError, ValueError):
+            pass                                          # pipe closed under us (close()); treat as EOF
+        finally:
+            # EOF (the process exited) or this thread died: wake up every waiting request with an
+            # error, instead of leaving them to hit the full timeout.
+            with self._lock:
+                self._dead = True
+                for waiter in self._pending.values():
+                    waiter["event"].set()                 # msg stays None -> "server exited"
 
     def _read_stderr(self) -> None:
         for raw in iter(self.proc.stderr.readline, b""):
