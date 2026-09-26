@@ -11,6 +11,9 @@ Vertex AI).
 - **File tools**: `read_file`, `list_dir`, `glob`, `grep`, `write_file`, and `edit_file` (unique
   exact-string replacement, with a read-before-edit/overwrite guard).
 - **`run_shell`** — PowerShell (or bash) with a timeout and truncated output.
+- **`web_fetch`** — fetch an http(s) URL (stdlib `urllib`, redirects capped at 5), converts HTML to
+  readable text, rejects non-http(s) schemes and private/loopback/link-local addresses (SSRF guard,
+  including the cloud metadata IP), and flags the result as untrusted content from the open web.
 - **Permissions** — `ask` / `auto` / `readonly` modes, per-tool "always allow," plus a shell command
   blocklist checked in every mode.
 - **Hooks** (`.forge/hooks.json`) — run your own shell commands before/after any tool call; a `pre_tool`
@@ -218,6 +221,7 @@ forge/
     base.py             Tool/ToolError, resolve(), truncate(), files_read guard
     read_file.py, list_dir.py, glob.py, grep.py    (read-only)
     write_file.py, edit_file.py, run_shell.py       (need permission)
+    web_fetch.py        fetch an http(s) URL as text, with an SSRF guard   (needs permission)
     todo.py             the model's own task list
     skill.py            the `skill` tool: load one installed skill's full SKILL.md body
 docs/
