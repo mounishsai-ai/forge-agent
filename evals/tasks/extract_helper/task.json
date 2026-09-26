@@ -1,0 +1,6 @@
+{
+  "id": "extract_helper",
+  "category": "refactor",
+  "difficulty": "medium",
+  "prompt": "In user_ops.py, the three functions create_user, update_user, and register_user all repeat the exact same validation logic for name/age/email. Extract that duplicated validation into a single reusable helper function and have all three call it, instead of repeating the checks inline. Keep the behavior of each function exactly the same (including what gets raised and what gets returned)."
+}

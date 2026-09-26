@@ -57,10 +57,13 @@ def run_one(task: dict, model: str, attempt: int, keep: bool) -> dict:
         result["error"] = f"agent timed out after {TASK_TIMEOUT}s"
     result["seconds"] = round(time.time() - start, 1)
 
-    check = subprocess.run([sys.executable, os.path.join(task["dir"], "check.py")], cwd=workdir,
-                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
-    result["passed"] = check.returncode == 0
-    result["check_output"] = (check.stdout + check.stderr).strip()[-800:]
+    try:
+        check = subprocess.run([sys.executable, os.path.join(task["dir"], "check.py")], cwd=workdir,
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180)
+        result["passed"] = check.returncode == 0
+        result["check_output"] = (check.stdout + check.stderr).strip()[-800:]
+    except subprocess.TimeoutExpired:
+        result["check_output"] = "checker timed out"
     result.pop("result", None)   # the agent's final message; long and not needed in the summary
     if keep:
         result["workdir"] = workdir

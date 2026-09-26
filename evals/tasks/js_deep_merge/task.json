@@ -1,0 +1,6 @@
+{
+  "id": "js_deep_merge",
+  "category": "bugfix",
+  "difficulty": "medium",
+  "prompt": "utils.js exports a deepMerge(target, source) function meant to recursively merge two plain objects, but it has several bugs. Fix deepMerge (keeping it exported the same way via module.exports) so that: 1) nested plain objects are merged recursively, key by key, instead of being clobbered; 2) if a key's value is an array, in either target or source, the source's array entirely replaces the target's array — arrays must never be merged index-by-index or turned into plain objects; 3) if a key's value in source is null, the merged result for that key is null (it overwrites target), not an empty object or the old target value; 4) deepMerge must not mutate the target or source objects/arrays that are passed in — it must build and return a new merged object, leaving both inputs exactly as they were before the call."
+}

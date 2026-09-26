@@ -1,0 +1,6 @@
+{
+  "id": "expr_calculator",
+  "category": "feature",
+  "difficulty": "hard",
+  "prompt": "Implement evaluate(expr: str) -> float in calc.py: a small arithmetic expression evaluator. It must support +, -, *, /, and parentheses, plus unary +/- which may repeat (e.g. \"--3\" is 3, and \"-+3\" is -3), with the usual operator precedence (* and / bind tighter than + and -) and left-to-right evaluation for operators of equal precedence. Whitespace anywhere in the expression should be ignored. Numbers can be integers or decimals (e.g. \"2.5\"). Division by zero must raise ValueError. Any other malformed input — empty or whitespace-only strings, unmatched parentheses, invalid characters, a missing operand, two numbers/parens with no operator between them, etc. — must also raise ValueError. Write your own parser: don't use Python's eval, exec, or ast.literal_eval. A few basic tests already live in test_calc.py; make evaluate satisfy them, and make it robust to the edge cases described above too."
+}

@@ -1,0 +1,6 @@
+{
+  "id": "find_jwt_leeway",
+  "category": "navigation",
+  "difficulty": "medium",
+  "prompt": "In this codebase, which function validates a JWT's expiry, and what is its default leeway (grace period), in seconds, when no override is passed in? Write your answer to answer.txt in this exact format: function_name,seconds (for example: some_function,42). Just that one line, nothing else."
+}

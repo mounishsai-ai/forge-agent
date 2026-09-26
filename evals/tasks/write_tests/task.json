@@ -1,0 +1,6 @@
+{
+  "id": "write_tests",
+  "category": "testing",
+  "difficulty": "medium",
+  "prompt": "Write a pytest test suite for the BankAccount class in bank_account.py, saved as test_bank_account.py in this directory. Cover deposits, withdrawals, transfers between accounts, and the error cases (negative/zero amounts, withdrawing more than the balance, constructing an account with a negative starting balance). Make the tests thorough enough that they'd catch a regression if someone broke the logic."
+}

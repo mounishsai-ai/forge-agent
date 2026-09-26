@@ -1,0 +1,6 @@
+{
+  "id": "rename_symbol",
+  "category": "refactor",
+  "difficulty": "easy",
+  "prompt": "In this small order-processing project, rename the function `calc_total` to `compute_total` everywhere it appears — its definition, every import statement, and every call site (including any `module.calc_total(...)` style calls) — across all the .py files. Don't change what the code does, just the name."
+}

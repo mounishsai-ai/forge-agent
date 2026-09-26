@@ -1,0 +1,6 @@
+{
+  "id": "log_report",
+  "category": "scripting",
+  "difficulty": "easy",
+  "prompt": "There's an Apache-style access log at access.log in this directory. Write a script that parses it and produces report.json with exactly this shape: a top-level object with two keys, \"status_counts\" and \"top_paths\". \"status_counts\" must be an object mapping each HTTP status code seen in the log (as a string, e.g. \"200\") to the number of requests with that status code. \"top_paths\" must be a JSON array of the 3 request paths with the most requests, ordered from most requests to fewest, where each array entry is an object with keys \"path\" (the request path, e.g. \"/index.html\") and \"count\" (the number of requests for that path). Run your script so report.json exists in this directory with the finished report."
+}
